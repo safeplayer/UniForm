@@ -12,24 +12,24 @@ Attribute VB_Creatable = True
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-' UniForm — One class to dress up VB6 forms with true Unicode and native Win32 controls—zero external dependencies.
+' UniForm — One class to dress up VB6 forms with true Unicode and native Win32 controls — zero external dependencies.
 '  A wrapper class for creating all win32 controls on a VB Form, with VB-like events and methods, naturally support Unicode and all Windows Messages
 '
 ' Advantages: Unicode, Owner-Drawn controls, automatic subclassing that fires MouseWheel, MouseLeave events and user events, additional convenient control wrappers
 '
 ' THE CONCEPT:
-'    1. In VB Form, create Labels as placeholders for controls' position and size
+'    1. In a VB Form, create Labels as placeholders for controls' position and size
 '    2. Give the labels names that fit the controls, like: lstFiles, txtAddress, cmdPlay, etc
 '    3. Set labels' font, backcolor, forecolor, backstyle, alignment, border style, appearance - those will be copied to the actual controls
 '    4. For each label, enter the Windows Control Class in LinkItem property.
 '       Any valid Windows Class is possible, but internal supported classes are:
 '       Edit(TextBox), ListBox, ComboBox, Frame, Static(For labels and images),
 '       Button(CommandButton), CheckBox, 3State(a checkbox with 3 states), RadioButton(OptionButton), RadioButtonGroup(to start a new radio buttons group)
-'    5. In Form Code, add a class object member: Public WithEvents mCtls As UniForm
-'    6. At Form_Load: Set mCtls = New UniForm: mCtls.Init(Me) ' <- This will create the controls and hide the labels
+'    5. In Form Code, add a class object member: Public WithEvents Uni As UniForm
+'    6. At Form_Load: Set Uni = New UniForm: Uni.Init Me ' <- This will create the controls and hide the labels
 '    7. To set special styles for a control (like Owner-Draw) you have to catch Create event. For a ListBox catch CreateListBox event, for a TextBox catch CreateEdit event etc. For other controls use generic Create event
 '       Every Create_xxx event uses a special styles enum for the specific control-type. Add (or exclude) the desired styles and ex_styles to the parameters
-'    8. The class provides wrappers for useful control methods. The general syntax is mCtls.Method(control). e.g. mCtls.ToolTipText(lstFiles) = "Drag files to the list"
+'    8. The class provides wrappers for useful control methods. The general syntax is Uni.Method(control). e.g. Uni.ToolTipText(lstFiles) = "Drag files to the list"
 '       ListBox and ComboBox: AddItem, List, ListCount, ListIndex, ItemData, TopIndex, ListWidth, ItemHeight, ClearList, FindItem, VisibleItems, IsItemVisible, MouseRow
 '       TextBox (and ComboBox's edit part): SetPasswordChar, HideSelection, Locked, MaxLength, MultiLine, NumbersOnly, RTL, ScrollBars,
 '                                           SelStart, SelLen, SelSet, SelText, CurLine, LineStart, LineLen, GetLine, CharPoint, CharAtPoint,
@@ -38,9 +38,10 @@ Attribute VB_Exposed = False
 '       For all controls: Tag(Variant), Text, Visible, Enable, ToolTipText, ToolTipFlags(alignment of tooltiptext), MouseInWindow, TextWidth(text width with control's font), TextHeight
 '       Left, Top, Width, Height, ClientWidth, ClientHeight, Move -> All values are in pixels!
 '       AcceptFiles, SetMouseCursor, BackColor, ForeColor, BackStyle, SetFocus, ZOrder, Alignment, BorderStyle, Appearance, SetFont, Refresh, GetWindow
+'       SetMouseCursor accepts an hCursor or enum with system cursor index
 '    9. Events: Standard VB events like MouseMove, KeyDown etc, In addition: MouseWheel, MouseEnter, MouseLeave, MouseHover, OwnerDraw(for owner-drawn controls), Message(all messages, including user messages)
-'       Unlike VB-events, a specific event handler is for ALL CONTROLS. Use ControlName to handle an individual control inside the event handler
-'   10. For tooltips, there is HideToolTip and ShowToolTip to show the tooltip with arbitrary text and position
+'       Unlike VB-events, a specific event handler is for ALL CONTROLS: Uni_Event(ControlName...). Use ControlName to handle an individual control inside the event handler
+'   10. Bonus: For tooltips, there is HideToolTip and ShowToolTip to show the tooltip with arbitrary text and position
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 Option Explicit
@@ -77,7 +78,7 @@ Event DropFiles(ByVal ControlName As String, oFiles As Collection)
 Event MouseEnter(ByVal ControlName As String)
 Event MouseLeave(ByVal ControlName As String)
 Event MouseHover(ByVal ControlName As String, ByVal Button As Integer, ByVal Shift As Integer, ByVal x As Long, ByVal y As Long)
-Event OwnerDraw(ByVal ControlName As String, ByVal hdc As Long, ByVal iLeft As Long, ByVal iTop As Long, ByVal iWidth As Long, ByVal iHeight As Long, ByVal Action As eCtlAction, ByVal State As eDrawState)
+Event OwnerDraw(ByVal ControlName As String, ByVal hdc As Long, ByVal Item As Long, ByVal iLeft As Long, ByVal iTop As Long, ByVal iWidth As Long, ByVal iHeight As Long, ByVal Action As eCtlAction, ByVal State As eDrawState)
 Event Message(ByVal ControlName As String, ByVal uMsg As Long, wParam As Long, lParam As Long, RetValue As Long, Handled As Boolean)
 
 Private Type tControl
@@ -165,7 +166,7 @@ Private Declare Function GetProcAddress& Lib "kernel32" (ByVal hModule&, ByVal l
 Private Declare Function CallWindowProcW& Lib "User32" (ByVal lpPrevWndFunc&, ByVal hwnd&, ByVal iMsg&, ByVal wParam&, ByVal lParam&)
 Private Declare Function DefSubclassProc413 Lib "comctl32" Alias "#413" (ByVal hwnd As Long, ByVal wMsg As Long, ByVal wParam As Long, ByVal lParam As Long) As Long
 Private Declare Function GetProcByOrdinal& Lib "kernel32" Alias "GetProcAddress" (ByVal hModule&, ByVal lpProcOrdinal&)
-Private Declare Function CallWindowProc& Lib "user32.dll" Alias "CallWindowProcA" (ByVal lpPrevWndFunc&, ByVal hwnd&, ByVal iMsg&, ByVal wParam&, ByVal lParam&)
+'Private Declare Function CallWindowProc& Lib "user32.dll" Alias "CallWindowProcA" (ByVal lpPrevWndFunc&, ByVal hwnd&, ByVal iMsg&, ByVal wParam&, ByVal lParam&)
 Private Declare Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (ByVal Destination&, ByVal Source&, ByVal Length&)
 Private Declare Function FindWindowExA& Lib "User32" (ByVal hwndParent&, ByVal hWndChildAfter&, ByVal lpszClass As String, ByVal lpszWindow As String)
 Private Declare Function GetWindowThreadProcessId& Lib "user32.dll" (ByVal hwnd&, ByVal lpdwProcessId&)
@@ -1975,12 +1976,14 @@ Dim s As String
 Dim sName As String
 Dim tme As tTRACKMOUSEEVENT
 Dim r As Long
+Dim clas As String
 
 id = GetId(hwnd)
 If id = 0 Then Exit Function
 
 id = id - 1
 sName = m_Controls(id).sName
+clas = m_Controls(id).sClass
 
 RaiseEvent Message(sName, wMsg, wParam, lParam, r, Handled)
 If Handled Then SubclassProc = r: Exit Function
@@ -2016,9 +2019,11 @@ Case WM_MOUSEHOVER:
     TrackMouseEvent VarPtr(tme)
     bTrack = True
 Case WM_LBUTTONDOWN: RaiseEvent MouseDown(sName, vbLeftButton, GetShift(wParam), Low16(lParam), High16(lParam))
+                     If clas = "edit" Then RaiseEvent Click(sName)
 Case WM_RBUTTONDOWN: RaiseEvent MouseDown(sName, vbRightButton, GetShift(wParam), Low16(lParam), High16(lParam))
 Case WM_LBUTTONUP: RaiseEvent MouseUp(sName, vbLeftButton, GetShift(wParam), Low16(lParam), High16(lParam))
 Case WM_RBUTTONUP: RaiseEvent MouseUp(sName, vbRightButton, GetShift(wParam), Low16(lParam), High16(lParam))
+Case WM_LBUTTONDBLCLK: If clas = "edit" Then RaiseEvent DblClick(sName)
 Case WM_MOUSEWHEEL:
     ar(0) = Low16(lParam)
     ar(1) = High16(lParam)
@@ -2079,7 +2084,7 @@ Case WM_DRAWITEM:
     CopyMemory VarPtr(di), lParam, Len(di)
     If m_Controls(id).hwnd <> di.hwndItem Then Exit Function
     l = di.rcItem.Left: t = di.rcItem.Top: w = di.rcItem.Right - l: h = di.rcItem.Bottom - t
-    RaiseEvent OwnerDraw(m_Controls(id).sName, di.hdc, l, t, w, h, di.itemAction, di.itemState)
+    RaiseEvent OwnerDraw(m_Controls(id).sName, di.hdc, di.itemID, l, t, w, h, di.itemAction, di.itemState)
     Handled = True
     SubclassFormProc = 1
 Case WM_COMMAND:
@@ -2228,7 +2233,7 @@ Public Function InitSubclassingThunk(ByVal hwnd As Long, pObj As Object, ByVal p
         '--- for IDE protection
         Debug.Assert pvThunkIdeOwner(aParams(7))
         If aParams(7) <> 0 Then
-            aParams(8) = GetProcAddress(GetModuleHandle("user32"), "GetWindowLongW")
+            aParams(8) = GetProcAddress(GetModuleHandle("user32"), "GetWindowLongA")
             aParams(9) = GetProcAddress(GetModuleHandle("vba6"), "EbMode")
             aParams(10) = GetProcAddress(GetModuleHandle("vba6"), "EbIsResetting")
         End If
@@ -2236,7 +2241,7 @@ Public Function InitSubclassingThunk(ByVal hwnd As Long, pObj As Object, ByVal p
             pvThunkGlobalData("InitSubclassingThunk") = hThunk
         #End If
     End If
-    lSize = CallWindowProc(hThunk, hwnd, 0, VarPtr(aParams(0)), VarPtr(InitSubclassingThunk))
+    lSize = CallWindowProcW(hThunk, hwnd, 0, VarPtr(aParams(0)), VarPtr(InitSubclassingThunk))
     Debug.Assert lSize = THUNK_SIZE
 End Function
 
