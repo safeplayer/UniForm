@@ -27,7 +27,13 @@ Attribute VB_Exposed = False
 '       Button(CommandButton), CheckBox, 3State(a checkbox with 3 states), RadioButton(OptionButton), RadioButtonGroup(to start a new radio buttons group)
 '    5. In Form Code, add a class object member: Public WithEvents Uni As UniForm
 '    6. At Form_Load: Set Uni = New UniForm: Uni.Init Me ' <- This will create the controls and hide the labels
-'    7. To set special styles for a control (like Owner-Draw) you have to catch Create event. For a ListBox catch CreateListBox event, for a TextBox catch CreateEdit event etc. For other controls use generic Create event
+'    7. The class name can contain some special style flags after a hyphen. e.g. For multiline and locked Edit control: Edit-lm
+'       The following flags are supported: Edit:lmn = l(locked)/m(multiline)/n(number only)
+'           Button/Checkbox/Radiobutton/3State:og = o(owner-draw)/g(graphical-pushlike)
+'           Listbox:smceov = s(sorted)/m(multiselection)/c(multicolumn)/e(extended selection)/o(owner-draw)/v(owner-draw-variable)
+'           ComboBox:scdpaov = s(sorted)/c(combo+edit)/d(droplist)/p(simple-no-drop)/a(auto-hscroll)/o(owner-draw)/v(owner-draw-variable)
+'           Static:ibo = i(Icon)/b(Bitmap)/o(Owner-draw)
+'       For a complete control of styles and some rare styles, you can catch Create event. For a ListBox catch CreateListBox event, for a TextBox catch CreateEdit event etc. For other controls use generic Create event
 '       Every Create_xxx event uses a special styles enum for the specific control-type. Add (or exclude) the desired styles and ex_styles to the parameters
 '    8. The class provides wrappers for useful control methods. The general syntax is Uni.Method(control). e.g. Uni.ToolTipText(lstFiles) = "Drag files to the list"
 '       ListBox and ComboBox: AddItem, RemoveItem, List, ListCount, ListIndex, ItemData, ClearList, SortList, MouseRow, TopIndex, FindItem, ListWidth, ItemHeight, VisibleItems, IsItemVisible
@@ -36,7 +42,7 @@ Attribute VB_Exposed = False
 '       ComboBox: DropState (Get/Let)
 '       CheckBox/RadioButton: Checked (Get/Let)
 '       For all controls: Tag(Variant), Text, Visible, Enable, ToolTipText, ToolTipFlags(alignment of tooltiptext), MouseInWindow, TextWidth(text width with control's font), TextHeight
-'       Left, Top, Width, Height, ClientWidth, ClientHeight, Move -> All values are in pixels!
+'       Left, Top, Width, Height, ClientWidth, ClientHeight, Move -> All values Get/Let are in pixels!
 '       AcceptFiles, SetMouseCursor, BackColor, ForeColor, BackStyle, SetFocus, ZOrder, Alignment, BorderStyle, Appearance, SetFont, Refresh, GetWindow
 '       SetMouseCursor accepts an hCursor or enum with system cursor index. SetFont accepts VB IFont or hFont.
 '    9. Events: Standard VB events like MouseMove, KeyDown etc, In addition: MouseWheel, MouseEnter, MouseLeave, MouseHover, OwnerDraw(for owner-drawn controls), Message(all messages, including user messages)
@@ -112,10 +118,10 @@ Private m_hwndParent&
 Private WM_CUEBANNER As Long
 
 Private Type RECTL
-    Left As Long
-    Top As Long
-    Right As Long
-    Bottom As Long
+    left As Long
+    top As Long
+    right As Long
+    bottom As Long
 End Type
 
 Private Type Msg
@@ -289,6 +295,7 @@ Private Declare Function GetDeviceCaps Lib "Gdi32" (ByVal hdc As Long, ByVal nIn
 Private Declare Function CreateFontA& Lib "Gdi32" (ByVal cHeight&, ByVal cWidth&, ByVal cEscapement&, ByVal cOrientation&, ByVal cWeight&, ByVal bItalic&, ByVal bUnderline&, ByVal bStrikeOut&, ByVal iCharSet&, ByVal iOutPrecision&, ByVal iClipPrecision&, ByVal iQuality&, ByVal iPitchAndFamily&, ByVal pszFaceName$)
 Private Declare Function CreateFontIndirectW Lib "Gdi32" (ByVal pLogFont As Long) As Long
 Private Declare Function GdiFlush& Lib "Gdi32" ()
+Private Declare Function IntersectClipRect& Lib "Gdi32" (ByVal hdc&, ByVal left&, ByVal top&, ByVal right&, ByVal bottom&)
 
 Private Declare Function SysAllocString& Lib "oleaut32" (ByVal ptr&)
 Private Declare Function SysAllocStringLen& Lib "oleaut32" (ByVal ptr&, ByVal Length&)
@@ -810,36 +817,42 @@ Private Const NORM_IGNORECASE& = &H1&
 
 Sub Init(frm As Form)
 Dim n As Long
-Dim i As Long
+Dim i As Long, p As Long
 Dim c
 Dim win As Long
 Dim clsName As String, s As String
 Dim l&, t&, w&, h&, nStyle&, exStyle&, Style2&
+Dim flags As String
 Dim fnt As IFont
 Dim sm As Long
 Dim Container As Object
 Dim hPar As Long
 Dim combo As tCOMBOBOXINFO
+Dim actl() As Object
+Dim cnt As Long
 
 combo.bSize = Len(combo)
 m_hwndParent = frm.hWnd
+cnt = frm.Controls.Count
+ReDim actl(0 To cnt)
 For Each c In frm.Controls
     clsName = ""
     On Error Resume Next
     clsName = LCase(c.LinkItem)
-    If clsName <> "" Then n = n + 1
+    If clsName <> "" Then n = n + 1: Set actl(c.TabIndex) = c
 Next
 pvSubclass m_pSubclassForm, frm.hWnd
 m_CtlCount = n
 If n = 0 Then Exit Sub
 ReDim m_Controls(0 To n - 1)
 n = 0
-For Each c In frm.Controls
-    clsName = ""
-    On Error Resume Next
-    'Debug.Print c.Name, c.TabIndex
-    clsName = LCase(c.LinkItem)
-    If clsName <> "" Then
+For i = 0 To cnt
+    If ObjPtr(actl(i)) Then
+        Set c = actl(i)
+        clsName = LCase(c.LinkItem)
+        flags = ""
+        p = InStr(1, clsName, "-")
+        If p > 0 Then flags = Mid(clsName, p + 1): clsName = VBA.left(clsName, p - 1)
         s = c.Caption
         sm = -1
         Set Container = c.Container
@@ -849,8 +862,8 @@ For Each c In frm.Controls
             If sm <> -1 Then Exit Do
             Set Container = Container.Container
         Loop
-        l = Container.ScaleX(c.Left, sm, vbPixels)
-        t = Container.ScaleY(c.Top, sm, vbPixels)
+        l = Container.ScaleX(c.left, sm, vbPixels)
+        t = Container.ScaleY(c.top, sm, vbPixels)
         w = Container.ScaleX(c.Width, sm, vbPixels)
         h = Container.ScaleY(c.Height, sm, vbPixels)
         nStyle = 0
@@ -866,14 +879,21 @@ For Each c In frm.Controls
         Case "static": nStyle = nStyle Or SS_NOTIFY
                        If c.Alignment = 1 Then nStyle = nStyle Or SS_RIGHT
                        If c.Alignment = 2 Then nStyle = nStyle Or SS_CENTER
+                       If InStr(1, flags, "i") Then nStyle = nStyle Or eSS_ICON
+                       If InStr(1, flags, "b") Then nStyle = nStyle Or eSS_BITMAP
+                       If InStr(1, flags, "o") Then nStyle = nStyle Or eSS_OWNERDRAW
                        RaiseEvent CreateStatic(c.Name, hPar, Style2, nStyle, exStyle)
                        nStyle = nStyle Or Style2
         Case "edit": If c.Alignment = 1 Then nStyle = nStyle Or ES_RIGHT: exStyle = exStyle Or WS_EX_RIGHT
                      If c.Alignment = 2 Then nStyle = nStyle Or ES_CENTER
                      If c.RightToLeft Then exStyle = exStyle Or WS_EX_RTLREADING Or WS_EX_LEFTSCROLLBAR
                      nStyle = nStyle Or ES_AUTOHSCROLL Or ES_AUTOVSCROLL Or ES_WANTRETURN
+                     If InStr(1, flags, "l") Then nStyle = nStyle Or eEDIT_LOCKED
+                     If InStr(1, flags, "m") Then nStyle = nStyle Or eEDIT_MULTILINE
+                     If InStr(1, flags, "n") Then nStyle = nStyle Or eEDIT_NUMBER
                      RaiseEvent CreateEdit(c.Name, hPar, nStyle, exStyle)
         Case "button": nStyle = nStyle Or BS_NOTIFY Or BS_MULTILINE
+                     If InStr(1, flags, "o") Then nStyle = nStyle Or BS_OWNERDRAW
                      RaiseEvent CreateButton(c.Name, hPar, nStyle, exStyle)
         Case "frame": clsName = "button": nStyle = nStyle Or BS_NOTIFY Or BS_GROUPBOX Or BS_MULTILINE
                      If c.Alignment = 1 Then nStyle = nStyle Or BS_RIGHTBUTTON Or BS_RIGHT
@@ -881,23 +901,44 @@ For Each c In frm.Controls
         Case "listbox": nStyle = nStyle Or LBS_NOTIFY Or WS_VSCROLL Or LBS_HASSTRINGS Or LBS_NOINTEGRALHEIGHT
                     If c.Alignment = 1 Then exStyle = exStyle Or EX_STYLES.WS_EX_RIGHT
                     If c.RightToLeft Then exStyle = exStyle Or WS_EX_RTLREADING Or WS_EX_LEFTSCROLLBAR
+                    If InStr(1, flags, "s") Then nStyle = nStyle Or eLB_SORT
+                    If InStr(1, flags, "m") Then nStyle = nStyle Or eLB_MULTIPLESEL
+                    If InStr(1, flags, "c") Then nStyle = nStyle Or eLB_MULTICOLUMN
+                    If InStr(1, flags, "e") Then nStyle = nStyle Or eLB_EXTENDEDSEL
+                    If InStr(1, flags, "o") Then nStyle = nStyle Or eLB_OWNERDRAWFIXED
+                    If InStr(1, flags, "v") Then nStyle = nStyle Or eLB_OWNERDRAWVARIABLE
                     RaiseEvent CreateListBox(c.Name, hPar, nStyle, exStyle)
         Case "combobox": nStyle = nStyle Or WS_VSCROLL Or CBS_HASSTRINGS Or CBS_NOINTEGRALHEIGHT
                     If c.Alignment = 1 Then exStyle = exStyle Or EX_STYLES.WS_EX_RIGHT
                     If c.RightToLeft Then exStyle = exStyle Or WS_EX_RTLREADING Or WS_EX_LEFTSCROLLBAR
+                    If InStr(1, flags, "s") Then nStyle = nStyle Or eCB_SORT
+                    If InStr(1, flags, "o") Then nStyle = nStyle Or eCB_OWNERDRAWFIXED
+                    If InStr(1, flags, "v") Then nStyle = nStyle Or eCB_OWNERDRAWVARIABLE
+                    If InStr(1, flags, "a") Then nStyle = nStyle Or eCB_AUTOHSCROLL
+                    If InStr(1, flags, "c") Then nStyle = nStyle Or eCB_DROPEDIT
+                    If InStr(1, flags, "d") Then nStyle = nStyle Or eCB_DROPSTATIC
+                    If InStr(1, flags, "p") Then nStyle = nStyle Or eCB_SIMPLE
                     RaiseEvent CreateComboBox(c.Name, hPar, nStyle, exStyle)
                     If (nStyle And 3) = 0 Then nStyle = nStyle Or CBS_DROPDOWN
-        Case "checkbox": clsName = "button": nStyle = nStyle Or BS_AUTOCHECKBOX Or BS_MULTILINE
+        Case "checkbox": clsName = "button": nStyle = nStyle Or BS_AUTOCHECKBOX Or BS_MULTILINE Or BS_NOTIFY
                     If c.Alignment = 1 Then nStyle = nStyle Or BS_RIGHTBUTTON Or BS_RIGHT
+                    If InStr(1, flags, "g") Then nStyle = nStyle Or eBUTTON_GRAPHICAL
+                    If InStr(1, flags, "o") Then nStyle = nStyle Or BS_OWNERDRAW
                     RaiseEvent CreateCheckBox(c.Name, hPar, nStyle, exStyle)
-        Case "3state": clsName = "button": nStyle = nStyle Or BS_AUTO3STATE Or BS_MULTILINE
+        Case "3state": clsName = "button": nStyle = nStyle Or BS_AUTO3STATE Or BS_MULTILINE Or BS_NOTIFY
                     If c.Alignment = 1 Then nStyle = nStyle Or BS_RIGHTBUTTON Or BS_RIGHT
+                    If InStr(1, flags, "g") Then nStyle = nStyle Or eBUTTON_GRAPHICAL
+                    If InStr(1, flags, "o") Then nStyle = nStyle Or BS_OWNERDRAW
                     RaiseEvent Create3State(c.Name, hPar, nStyle, exStyle)
-        Case "radiobutton": clsName = "button": nStyle = nStyle Or BS_AUTORADIOBUTTON Or BS_MULTILINE
+        Case "radiobutton": clsName = "button": nStyle = nStyle Or BS_AUTORADIOBUTTON Or BS_MULTILINE Or BS_NOTIFY
                     If c.Alignment = 1 Then nStyle = nStyle Or BS_RIGHTBUTTON Or BS_RIGHT
+                    If InStr(1, flags, "g") Then nStyle = nStyle Or eBUTTON_GRAPHICAL
+                    If InStr(1, flags, "o") Then nStyle = nStyle Or BS_OWNERDRAW
                     RaiseEvent CreateRadioButton(c.Name, hPar, nStyle, exStyle)
-        Case "radiobuttongroup": clsName = "button": nStyle = nStyle Or BS_AUTORADIOBUTTON Or WS_GROUP Or BS_MULTILINE
+        Case "radiobuttongroup": clsName = "button": nStyle = nStyle Or BS_AUTORADIOBUTTON Or WS_GROUP Or BS_MULTILINE Or BS_NOTIFY
                     If c.Alignment = 1 Then nStyle = nStyle Or BS_RIGHTBUTTON Or BS_RIGHT
+                    If InStr(1, flags, "g") Then nStyle = nStyle Or eBUTTON_GRAPHICAL
+                    If InStr(1, flags, "o") Then nStyle = nStyle Or BS_OWNERDRAW
                     RaiseEvent CreateRadioButton(c.Name, hPar, nStyle, exStyle)
         Case Else:
             RaiseEvent Create(c.Name, hPar, clsName, nStyle, exStyle)
@@ -1297,7 +1338,7 @@ GetCursorPos VarPtr(ar(0))
 ScreenToClient win, VarPtr(ar(0))
 GetClientRect win, rc
 If ar(0) < 0 Or ar(1) < 0 Then Exit Property
-If ar(0) > rc.Right Or ar(1) > rc.Bottom Then Exit Property
+If ar(0) > rc.right Or ar(1) > rc.bottom Then Exit Property
 n = TopIndex(ctl) + ar(1) \ ItemHeight(ctl)
 If n >= 0 And n < ListCount(ctl) Then MouseRow = n
 End Property
@@ -1313,8 +1354,8 @@ dc = GetDC(0)
 SelectObject dc, hFont
 DrawText dc, StrPtr(txt), Len(txt), VarPtr(rc), DT_CALCRECT
 ReleaseDC 0, dc
-nHeight = rc.Bottom - rc.Top
-TextWidth = rc.Right - rc.Left
+nHeight = rc.bottom - rc.top
+TextWidth = rc.right - rc.left
 End Property
 
 Property Get TextHeight(ctl As Object, txt) As Long
@@ -1328,7 +1369,7 @@ dc = GetDC(0)
 SelectObject dc, hFont
 DrawText dc, StrPtr(txt), Len(txt), VarPtr(rc), DT_CALCRECT
 ReleaseDC 0, dc
-TextHeight = rc.Bottom - rc.Top
+TextHeight = rc.bottom - rc.top
 End Property
 
 Property Get SelStart(ctl As Object) As Long
@@ -1519,46 +1560,46 @@ win = GetWindow(ctl): If win = 0 Then Exit Property
 SendMessageW win, BM_SETCHECK, c, 0
 End Property
 
-Property Get Left(ctl As Object) As Long
+Property Get left(ctl As Object) As Long
 Dim win As Long
 Dim rc As RECTL
 Dim par As Long
 win = GetWindow(ctl): If win = 0 Then Exit Property
 GetWindowRect win, rc
-If TypeOf ctl Is Form Then Left = rc.Left: Exit Property
+If TypeOf ctl Is Form Then left = rc.left: Exit Property
 par = GetParent(win)
 ScreenToClient par, VarPtr(rc)
-Left = rc.Left
+left = rc.left
 End Property
 
-Property Let Left(ctl As Object, ByVal c As Long)
+Property Let left(ctl As Object, ByVal c As Long)
 Dim win As Long
 Dim rc As RECTL
 win = GetWindow(ctl): If win = 0 Then Exit Property
 GetWindowRect win, rc
-If TypeOf ctl Is Form Then rc.Left = c Else ScreenToClient GetParent(win), VarPtr(rc): rc.Left = c
-SetWindowPos win, 0, rc.Left, rc.Top, 0, 0, SWP_NOACTIVATE Or SWP_NOSIZE Or SWP_NOZORDER
+If TypeOf ctl Is Form Then rc.left = c Else ScreenToClient GetParent(win), VarPtr(rc): rc.left = c
+SetWindowPos win, 0, rc.left, rc.top, 0, 0, SWP_NOACTIVATE Or SWP_NOSIZE Or SWP_NOZORDER
 End Property
 
-Property Get Top(ctl As Object) As Long
+Property Get top(ctl As Object) As Long
 Dim win As Long
 Dim rc As RECTL
 Dim par As Long
 win = GetWindow(ctl): If win = 0 Then Exit Property
 GetWindowRect win, rc
-If TypeOf ctl Is Form Then Top = rc.Top: Exit Property
+If TypeOf ctl Is Form Then top = rc.top: Exit Property
 par = GetParent(win)
 ScreenToClient par, VarPtr(rc)
-Top = rc.Top
+top = rc.top
 End Property
 
-Property Let Top(ctl As Object, ByVal c As Long)
+Property Let top(ctl As Object, ByVal c As Long)
 Dim win As Long
 Dim rc As RECTL
 win = GetWindow(ctl): If win = 0 Then Exit Property
 GetWindowRect win, rc
-If TypeOf ctl Is Form Then rc.Top = c Else ScreenToClient GetParent(win), VarPtr(rc): rc.Top = c
-SetWindowPos win, 0, rc.Left, rc.Top, 0, 0, SWP_NOACTIVATE Or SWP_NOSIZE Or SWP_NOZORDER
+If TypeOf ctl Is Form Then rc.top = c Else ScreenToClient GetParent(win), VarPtr(rc): rc.top = c
+SetWindowPos win, 0, rc.left, rc.top, 0, 0, SWP_NOACTIVATE Or SWP_NOSIZE Or SWP_NOZORDER
 End Property
 
 Property Get Width(ctl As Object) As Long
@@ -1569,8 +1610,8 @@ Dim w As Long
 Dim h As Long
 win = GetWindow(ctl): If win = 0 Then Exit Property
 GetWindowRect win, rc
-w = rc.Right - rc.Left
-h = rc.Bottom - rc.Top
+w = rc.right - rc.left
+h = rc.bottom - rc.top
 Width = w
 End Property
 
@@ -1582,8 +1623,8 @@ Dim w As Long
 Dim h As Long
 win = GetWindow(ctl): If win = 0 Then Exit Property
 GetWindowRect win, rc
-w = rc.Right - rc.Left
-h = rc.Bottom - rc.Top
+w = rc.right - rc.left
+h = rc.bottom - rc.top
 Height = h
 End Property
 
@@ -1594,8 +1635,8 @@ Dim w As Long
 Dim h As Long
 win = GetWindow(ctl): If win = 0 Then Exit Property
 GetWindowRect win, rc
-w = rc.Right - rc.Left
-h = rc.Bottom - rc.Top
+w = rc.right - rc.left
+h = rc.bottom - rc.top
 SetWindowPos win, 0, 0, 0, c, h, SWP_NOACTIVATE Or SWP_NOMOVE Or SWP_NOZORDER
 End Property
 
@@ -1606,8 +1647,8 @@ Dim w As Long
 Dim h As Long
 win = GetWindow(ctl): If win = 0 Then Exit Property
 GetWindowRect win, rc
-w = rc.Right - rc.Left
-h = rc.Bottom - rc.Top
+w = rc.right - rc.left
+h = rc.bottom - rc.top
 SetWindowPos win, 0, 0, 0, w, c, SWP_NOACTIVATE Or SWP_NOMOVE Or SWP_NOZORDER
 End Property
 
@@ -1619,7 +1660,7 @@ Dim w As Long
 Dim h As Long
 win = GetWindow(ctl): If win = 0 Then Exit Property
 GetClientRect win, rc
-ClientWidth = rc.Right
+ClientWidth = rc.right
 End Property
 
 Property Get ClientHeight(ctl As Object) As Long
@@ -1630,7 +1671,7 @@ Dim w As Long
 Dim h As Long
 win = GetWindow(ctl): If win = 0 Then Exit Property
 GetClientRect win, rc
-ClientHeight = rc.Bottom
+ClientHeight = rc.bottom
 End Property
 
 Property Let ClientWidth(ctl As Object, ByVal c As Long)
@@ -1642,9 +1683,9 @@ Dim h As Long
 win = GetWindow(ctl): If win = 0 Then Exit Property
 GetWindowRect win, rc
 GetClientRect win, rc2
-w = rc.Right - rc.Left
-h = rc.Bottom - rc.Top
-SetWindowPos win, 0, 0, 0, c + w - rc2.Right, h, SWP_NOACTIVATE Or SWP_NOMOVE Or SWP_NOZORDER
+w = rc.right - rc.left
+h = rc.bottom - rc.top
+SetWindowPos win, 0, 0, 0, c + w - rc2.right, h, SWP_NOACTIVATE Or SWP_NOMOVE Or SWP_NOZORDER
 End Property
 
 Property Let ClientHeight(ctl As Object, ByVal c As Long)
@@ -1656,9 +1697,9 @@ Dim h As Long
 win = GetWindow(ctl): If win = 0 Then Exit Property
 GetWindowRect win, rc
 GetClientRect win, rc2
-w = rc.Right - rc.Left
-h = rc.Bottom - rc.Top
-SetWindowPos win, 0, 0, 0, w, c + h - rc2.Bottom, SWP_NOACTIVATE Or SWP_NOMOVE Or SWP_NOZORDER
+w = rc.right - rc.left
+h = rc.bottom - rc.top
+SetWindowPos win, 0, 0, 0, w, c + h - rc2.bottom, SWP_NOACTIVATE Or SWP_NOMOVE Or SWP_NOZORDER
 End Property
 
 Sub Move(ctl As Object, Optional nLeft, Optional nTop, Optional nWidth, Optional nHeight)
@@ -1667,11 +1708,11 @@ Dim l&, t&, w&, h&
 Dim rc As RECTL
 win = GetWindow(ctl): If win = 0 Then Exit Sub
 GetWindowRect win, rc
-w = rc.Right - rc.Left
-h = rc.Bottom - rc.Top
+w = rc.right - rc.left
+h = rc.bottom - rc.top
 If TypeOf ctl Is Form Then Else ScreenToClient GetParent(win), VarPtr(rc)
-l = rc.Left
-t = rc.Top
+l = rc.left
+t = rc.top
 If Not IsMissing(nLeft) Then l = nLeft
 If Not IsMissing(nTop) Then t = nTop
 If Not IsMissing(nWidth) Then w = nWidth
@@ -2050,25 +2091,25 @@ If Len(txt) = 0 Then HideToolTip: Exit Sub
 monInfo.cbSize = Len(monInfo)
 hMonitor = MonitorFromWindow(m_hwndParent, MONITOR_DEFAULTTONEAREST)
 GetMonitorInfoA hMonitor, VarPtr(monInfo)
-minX = monInfo.rcWork.Left
-minY = monInfo.rcWork.Top
-maxX = monInfo.rcWork.Right
-maxY = monInfo.rcWork.Bottom
+minX = monInfo.rcWork.left
+minY = monInfo.rcWork.top
+maxX = monInfo.rcWork.right
+maxY = monInfo.rcWork.bottom
 f = flag And 3
 If flag And eTTFRTL Then f = f Or DT_RTLREADING
 dc = GetDC(0)
 If hFont = 0 Then
     hFont = CreateFontA(Round(-9 * GetDeviceCaps(dc, 90) / 72), 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, 0, 0, "Segoe UI")
 End If
-rc.Right = 700
-rc.Bottom = 1000
+rc.right = 700
+rc.bottom = 1000
 SelectObject dc, hFont
 DrawText dc, StrPtr(txt), Len(txt), VarPtr(rc), DT_CALCRECT Or DT_WORDBREAK Or f
 ReleaseDC 0, dc
 scrW = GetSystemMetrics(0)
 scrH = GetSystemMetrics(1)
-w = rc.Right + 4
-h = rc.Bottom + 4
+w = rc.right + 4
+h = rc.bottom + 4
 l = X - w \ 2
 If l + w > maxX Then l = maxX - w
 If l < minX Then l = minX
@@ -2133,9 +2174,10 @@ Case WM_KILLFOCUS:
 Case WM_PAINT:
     SubclassProc = 1
     If clas <> "edit" And clas <> "combobox" Then Exit Function
-    If clas = "combobox" And ObjPtr(m_Controls(id).m_SubclassItem) <> 0 Then Exit Function
+    If clas = "combobox" And m_Controls(id).hEdit <> 0 Then Exit Function
     If m_Controls(id).CueBanner = "" Then Exit Function
     If GetWindowTextLength(hWnd) Then Exit Function
+    'Stop
     SubclassProc = DefSubclassProc413(hWnd, wMsg, wParam, lParam)
     Handled = True
     SubclassProc = 0
@@ -2148,6 +2190,7 @@ Case WM_PAINT:
         GetComboBoxInfo hWnd, VarPtr(cbi)
         rc = cbi.rcItem
     End If
+    IntersectClipRect dc, rc.left, rc.top, rc.right, rc.bottom
     Style = GetWindowLongW(win, -16&)
     exStyle = GetWindowLongW(win, -20&)
     hFont = SendMessageW(hWnd, WM_GETFONT, 0, 0)
@@ -2169,11 +2212,12 @@ Case WM_PAINT:
     Else
         If exStyle And WS_EX_RIGHT Then flag = flag Or DT_RIGHT
     End If
+    'Stop
     DrawText dc, StrPtr(m_Controls(id).CueBanner), -1, VarPtr(rc), flag
     'If Style And ES_RIGHT Then OffsetRect VarPtr(rc), rc2.Right - rc.Right, 0
     'If Style And ES_CENTER Then OffsetRect VarPtr(rc), (rc2.Right - rc.Right) \ 2, 0
-    If rc.Right > rc2.Right Then rc.Right = rc2.Right
-    DrawText dc, StrPtr(m_Controls(id).CueBanner), -1, VarPtr(rc), flag
+    'If rc.Right > rc2.Right Then rc.Right = rc2.Right
+    'DrawText dc, StrPtr(m_Controls(id).CueBanner), -1, VarPtr(rc), flag
     'EndPaint win, ps
     ReleaseDC win, dc
     DeleteObject hFont
@@ -2235,7 +2279,7 @@ Case WM_DROPFILES:
         Set cl = New Collection
         s = AllocStr(1024)
         For n = 0 To cnt - 1
-            cl.Add VBA.Left(s, DragQueryFileW(wParam, n, StrPtr(s), Len(s)))
+            cl.Add VBA.left(s, DragQueryFileW(wParam, n, StrPtr(s), Len(s)))
         Next
         RaiseEvent DropFiles(sName, cl)
     End If
@@ -2291,7 +2335,7 @@ Case WM_DRAWITEM:
     If id < 0 Or id >= m_CtlCount Then Exit Function
     CopyMemory VarPtr(di), lParam, Len(di)
     If m_Controls(id).hWnd <> di.hwndItem Then Exit Function
-    l = di.rcItem.Left: t = di.rcItem.Top: w = di.rcItem.Right - l: h = di.rcItem.Bottom - t
+    l = di.rcItem.left: t = di.rcItem.top: w = di.rcItem.right - l: h = di.rcItem.bottom - t
     RaiseEvent OwnerDraw(m_Controls(id).sName, di.hdc, di.itemID, l, t, w, h, di.itemAction, di.itemState)
     Handled = True
     SubclassFormProc = 1
@@ -2409,7 +2453,7 @@ Dim lf As LOGFONTW
 Dim hFont As Long
 Dim rc As RECTL, rc2 As RECTL
 Dim flag As Long
-Dim Style As Long
+Dim Style As Long, exStyle As Long
 Dim cbi As tCOMBOBOXINFO
 Dim ps As PAINTSTRUCT
 
@@ -2427,11 +2471,15 @@ Case WM_PAINT:
     SubclassComboProc = 1
     If m_Controls(id).CueBanner = "" Then Exit Function
     If GetWindowTextLength(hWnd) Then Exit Function
+    cbi.bSize = Len(cbi)
+    GetComboBoxInfo m_Controls(id).hWnd, VarPtr(cbi)
     Handled = True
     SubclassComboProc = 0
     GetClientRect hWnd, rc2
     rc = rc2
+    'rc = cbi.rcItem
     Style = GetWindowLongW(hWnd, -16&)
+    exStyle = GetWindowLongW(m_Controls(id).hWnd, -20&)
     hFont = SendMessageW(hWnd, WM_GETFONT, 0, 0)
     GetObjectAPI hFont, Len(lf), lf
     lf.lfItalic = 1
@@ -2441,14 +2489,15 @@ Case WM_PAINT:
     SelectObject dc, hFont
     SelectObject dc, GetStockObject(DC_BRUSH)
     SetDCBrushColor dc, m_Controls(id).BackColor
-    PatBlt dc, 0, 0, rc2.Right, rc2.Bottom, vbPatCopy
+    PatBlt dc, 0, 0, rc2.right, rc2.bottom, vbPatCopy
     SetBkColor dc, m_Controls(id).BackColor
     SetTextColor dc, &H7F7F7F
     If IsHeb(m_Controls(id).CueBanner) Then flag = flag Or DT_RTLREADING
-    DrawText dc, StrPtr(m_Controls(id).CueBanner), -1, VarPtr(rc), flag Or DT_CALCRECT
-    If Style And ES_RIGHT Then OffsetRect VarPtr(rc), rc2.Right - rc.Right, 0
-    If Style And ES_CENTER Then OffsetRect VarPtr(rc), (rc2.Right - rc.Right) \ 2, 0
-    If rc.Right > rc2.Right Then rc.Right = rc2.Right
+    If exStyle And WS_EX_RIGHT Then flag = flag Or DT_RIGHT
+    'DrawText dc, StrPtr(m_Controls(id).CueBanner), -1, VarPtr(rc), flag Or DT_CALCRECT
+    'If Style And ES_RIGHT Then OffsetRect VarPtr(rc), rc2.right - rc.right, 0
+    'If Style And ES_CENTER Then OffsetRect VarPtr(rc), (rc2.right - rc.right) \ 2, 0
+    'If rc.right > rc2.right Then rc.right = rc2.right
     DrawText dc, StrPtr(m_Controls(id).CueBanner), -1, VarPtr(rc), flag
     EndPaint hWnd, ps
     DeleteObject hFont
@@ -2633,7 +2682,7 @@ Private Property Get pvThunkGlobalData(sKey As String) As Long
     
     sBuffer = String$(50, 0)
     Call GetEnvironmentVariableA("_MST_GLOBAL" & GetCurrentProcessId() & "_" & sKey, sBuffer, Len(sBuffer) - 1)
-    pvThunkGlobalData = Val(Left$(sBuffer, InStr(sBuffer, vbNullChar) - 1))
+    pvThunkGlobalData = Val(left$(sBuffer, InStr(sBuffer, vbNullChar) - 1))
 End Property
 
 Private Property Let pvThunkGlobalData(sKey As String, ByVal lValue As Long)
