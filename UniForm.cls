@@ -86,7 +86,9 @@ Private Type tControl
     m_Subclass As IUnknown
     m_SubclassItem As IUnknown
     m_SubclassList As IUnknown
-    hwnd As Long
+    hWnd As Long
+    hEdit As Long
+    hList As Long
     sName As String
     sClass As String
     BackColor As Long
@@ -117,7 +119,7 @@ Private Type RECTL
 End Type
 
 Private Type Msg
-    hwnd As Long
+    hWnd As Long
     message As Long
     wParam As Long
     lParam As Long
@@ -204,67 +206,70 @@ End Type
 
 Private Declare Function GetModuleHandle& Lib "kernel32" Alias "GetModuleHandleA" (ByVal lpModuleName As String)
 Private Declare Function GetProcAddress& Lib "kernel32" (ByVal hModule&, ByVal lpProcName As String)
-Private Declare Function CallWindowProcW& Lib "User32" (ByVal lpPrevWndFunc&, ByVal hwnd&, ByVal iMsg&, ByVal wParam&, ByVal lParam&)
-Private Declare Function DefSubclassProc413 Lib "comctl32" Alias "#413" (ByVal hwnd As Long, ByVal wMsg As Long, ByVal wParam As Long, ByVal lParam As Long) As Long
+Private Declare Function CallWindowProcW& Lib "user32" (ByVal lpPrevWndFunc&, ByVal hWnd&, ByVal iMsg&, ByVal wParam&, ByVal lParam&)
+Private Declare Function DefSubclassProc413 Lib "comctl32" Alias "#413" (ByVal hWnd As Long, ByVal wMsg As Long, ByVal wParam As Long, ByVal lParam As Long) As Long
 Private Declare Function GetProcByOrdinal& Lib "kernel32" Alias "GetProcAddress" (ByVal hModule&, ByVal lpProcOrdinal&)
 'Private Declare Function CallWindowProc& Lib "user32.dll" Alias "CallWindowProcA" (ByVal lpPrevWndFunc&, ByVal hwnd&, ByVal iMsg&, ByVal wParam&, ByVal lParam&)
 Private Declare Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (ByVal Destination&, ByVal Source&, ByVal Length&)
-Private Declare Function FindWindowExA& Lib "User32" (ByVal hwndParent&, ByVal hWndChildAfter&, ByVal lpszClass As String, ByVal lpszWindow As String)
-Private Declare Function GetWindowThreadProcessId& Lib "user32.dll" (ByVal hwnd&, ByVal lpdwProcessId&)
+Private Declare Function FindWindowExA& Lib "user32" (ByVal hwndParent&, ByVal hWndChildAfter&, ByVal lpszClass As String, ByVal lpszWindow As String)
+Private Declare Function GetWindowThreadProcessId& Lib "user32.dll" (ByVal hWnd&, ByVal lpdwProcessId&)
 Private Declare Function GetCurrentProcessId& Lib "kernel32.dll" ()
 Private Declare Function VirtualAlloc& Lib "kernel32" (ByVal lpAddress&, ByVal dwSize&, ByVal flAllocationType&, ByVal flProtect&)
-Private Declare Function CreateWindowExW Lib "User32" (ByVal dwExStyle As Long, ByVal lpClassName As Long, ByVal lpWindowName As Long, ByVal dwStyle As Long, ByVal X As Long, ByVal Y As Long, ByVal nWidth As Long, ByVal nHeight As Long, ByVal hwndParent As Long, ByVal hMenu As Long, ByVal hInstance As Long, ByVal lpParam As Long) As Long
-Private Declare Function WindowFromPoint& Lib "User32" (ByVal X&, ByVal Y&)
-Private Declare Function LoadCursorV& Lib "User32" Alias "LoadCursorA" (ByVal hInstance&, ByVal lpCursorName&)
+Private Declare Function CreateWindowExW Lib "user32" (ByVal dwExStyle As Long, ByVal lpClassName As Long, ByVal lpWindowName As Long, ByVal dwStyle As Long, ByVal X As Long, ByVal Y As Long, ByVal nWidth As Long, ByVal nHeight As Long, ByVal hwndParent As Long, ByVal hMenu As Long, ByVal hInstance As Long, ByVal lpParam As Long) As Long
+Private Declare Function WindowFromPoint& Lib "user32" (ByVal X&, ByVal Y&)
+Private Declare Function LoadCursorV& Lib "user32" Alias "LoadCursorA" (ByVal hInstance&, ByVal lpCursorName&)
 Private Declare Function SetCursor Lib "user32.dll" (ByVal hCursor As Long) As Long
 Private Declare Function GetKeyState Lib "user32.dll" (ByVal nVirtKey As Long) As Integer
+Private Declare Function GetAsyncKeyState Lib "user32" (ByVal vKey As Long) As Integer
 Private Declare Function GetCursorPos Lib "user32.dll" (ByVal lpPoint As Long) As Long
 Private Declare Function TrackMouseEvent& Lib "user32.dll" (ByVal lpEventTrack&)
-Private Declare Function SendMessageW Lib "User32" (ByVal hwnd As Long, ByVal wMsg As Long, ByVal wParam As Long, ByVal lParam As Long) As Long
-Private Declare Function PostMessageW& Lib "user32.dll" (ByVal hwnd&, ByVal wMsg&, ByVal wParam&, ByVal lParam&)
-Private Declare Function GetDlgItem Lib "User32" (ByVal hWndDlg As Long, ByVal id As Long) As Long
-Private Declare Function GetDlgCtrlID Lib "User32" (ByVal hWndCtl As Long) As Long
-Private Declare Function GetSystemMetrics Lib "User32" (ByVal nIndex As Long) As Long
-Private Declare Function MonitorFromWindow& Lib "User32" (ByVal hwnd&, ByVal dwFlags&)
-Private Declare Function GetMonitorInfoA& Lib "User32" (ByVal hMonitor&, ByVal lpmi&)
+Private Declare Function SendMessageW Lib "user32" (ByVal hWnd As Long, ByVal wMsg As Long, ByVal wParam As Long, ByVal lParam As Long) As Long
+Private Declare Function PostMessageW& Lib "user32.dll" (ByVal hWnd&, ByVal wMsg&, ByVal wParam&, ByVal lParam&)
+Private Declare Function GetDlgItem Lib "user32" (ByVal hWndDlg As Long, ByVal id As Long) As Long
+Private Declare Function GetDlgCtrlID Lib "user32" (ByVal hWndCtl As Long) As Long
+Private Declare Function GetSystemMetrics Lib "user32" (ByVal nIndex As Long) As Long
+Private Declare Function MonitorFromWindow& Lib "user32" (ByVal hWnd&, ByVal dwFlags&)
+Private Declare Function GetMonitorInfoA& Lib "user32" (ByVal hMonitor&, ByVal lpmi&)
 Private Declare Function CompareString& Lib "kernel32.dll" Alias "CompareStringW" (ByVal Locale&, ByVal dwCmpFlags&, ByVal lpString1&, ByVal cchCount1&, ByVal lpString2&, ByVal cchCount2&)
 Private Declare Function DragQueryFileW Lib "Shell32.dll" (ByVal drop_handle As Long, ByVal UINT As Long, ByVal lpStr As Long, ByVal ch As Long) As Long
 Private Declare Sub DragFinish Lib "Shell32" (ByVal hDrop&)
-Private Declare Sub DragAcceptFiles Lib "Shell32" (ByVal hwnd&, ByVal fAccept&)
+Private Declare Sub DragAcceptFiles Lib "Shell32" (ByVal hWnd&, ByVal fAccept&)
 
-Private Declare Function GetWindowTextLength Lib "user32.dll" Alias "GetWindowTextLengthW" (ByVal hwnd As Long) As Long
-Private Declare Function GetWindowTextW Lib "user32.dll" (ByVal hwnd As Long, ByVal lpString As Long, ByVal cch As Long) As Long
-Private Declare Function SetWindowTextW Lib "user32.dll" (ByVal hwnd As Long, ByVal lpString As Long) As Long
-Private Declare Function EnableWindow Lib "user32.dll" (ByVal hwnd As Long, ByVal fEnable As Long) As Long
-Private Declare Function IsWindowEnabled Lib "user32.dll" (ByVal hwnd As Long) As Long
-Private Declare Function SetWindowPos Lib "User32" (ByVal hwnd&, ByVal hWndInsertAfter&, ByVal X&, ByVal Y&, ByVal cx&, ByVal cy&, ByVal wFlags&) As Long
-Private Declare Function IsWindowVisible Lib "user32.dll" (ByVal hwnd As Long) As Long
-Private Declare Function ShowWindow Lib "user32.dll" (ByVal hwnd As Long, ByVal nCmdShow As Long) As Long
-Private Declare Function GetComboBoxInfo& Lib "User32" (ByVal hwndCombo&, ByVal pcbi&)
-Private Declare Function GetClientRect& Lib "User32" (ByVal hwnd&, lpRect As RECTL)
-Private Declare Function GetWindowRect& Lib "User32" (ByVal hwnd&, lpRect As RECTL)
-Private Declare Function ClientToScreen& Lib "User32" (ByVal hwnd&, ByVal lpPoint&)
-Private Declare Function ScreenToClient& Lib "User32" (ByVal hwnd&, ByVal lpPoint&)
-Private Declare Function GetParent& Lib "User32" (ByVal hwnd&)
-Private Declare Function InvalidateRectV Lib "User32" Alias "InvalidateRect" (ByVal hwnd As Long, ByVal lpRect As Long, ByVal bErase As Long) As Long
-Private Declare Function GetWindowLongW Lib "User32" (ByVal hwnd&, ByVal nIndex&) As Long
-Private Declare Function SetWindowLongW Lib "User32" (ByVal hwnd&, ByVal nIndex&, ByVal dwNewLong&) As Long
-Private Declare Function DestroyWindow Lib "user32.dll" (ByVal hwnd As Long) As Long
-Private Declare Function RegisterClassEx Lib "User32" Alias "RegisterClassExW" (ByVal pcWndClassEx As Long) As Integer
-Private Declare Function RegisterWindowMessageA& Lib "User32" (ByVal lpString$)
-Private Declare Function BeginPaint Lib "User32" (ByVal hwnd As Long, lpPaint As PAINTSTRUCT) As Long
-Private Declare Function EndPaint Lib "User32" (ByVal hwnd As Long, lpPaint As PAINTSTRUCT) As Long
-Private Declare Function GetProp& Lib "user32.dll" Alias "GetPropA" (ByVal hwnd&, ByVal lpString As String)
-Private Declare Function SetProp& Lib "user32.dll" Alias "SetPropA" (ByVal hwnd&, ByVal lpString As String, ByVal hData&)
-Private Declare Function RemoveProp& Lib "user32.dll" Alias "RemovePropA" (ByVal hwnd&, ByVal lpString As String)
-Private Declare Function IsDialogMessageW& Lib "User32" (ByVal hDlg&, ByVal lpMsg&)
-Private Declare Function IsDialogMessageA& Lib "User32" (ByVal hDlg&, ByVal lpMsg&)
+Private Declare Function GetWindowTextLength Lib "user32.dll" Alias "GetWindowTextLengthW" (ByVal hWnd As Long) As Long
+Private Declare Function GetWindowTextW Lib "user32.dll" (ByVal hWnd As Long, ByVal lpString As Long, ByVal cch As Long) As Long
+Private Declare Function SetWindowTextW Lib "user32.dll" (ByVal hWnd As Long, ByVal lpString As Long) As Long
+Private Declare Function EnableWindow Lib "user32.dll" (ByVal hWnd As Long, ByVal fEnable As Long) As Long
+Private Declare Function IsWindowEnabled Lib "user32.dll" (ByVal hWnd As Long) As Long
+Private Declare Function SetWindowPos Lib "user32" (ByVal hWnd&, ByVal hWndInsertAfter&, ByVal X&, ByVal Y&, ByVal cx&, ByVal cy&, ByVal wFlags&) As Long
+Private Declare Function IsWindowVisible Lib "user32.dll" (ByVal hWnd As Long) As Long
+Private Declare Function ShowWindow Lib "user32.dll" (ByVal hWnd As Long, ByVal nCmdShow As Long) As Long
+Private Declare Function GetComboBoxInfo& Lib "user32" (ByVal hwndCombo&, ByVal pcbi&)
+Private Declare Function GetClientRect& Lib "user32" (ByVal hWnd&, lpRect As RECTL)
+Private Declare Function GetWindowRect& Lib "user32" (ByVal hWnd&, lpRect As RECTL)
+Private Declare Function ClientToScreen& Lib "user32" (ByVal hWnd&, ByVal lpPoint&)
+Private Declare Function ScreenToClient& Lib "user32" (ByVal hWnd&, ByVal lpPoint&)
+Private Declare Function GetParent& Lib "user32" (ByVal hWnd&)
+Private Declare Function InvalidateRectV Lib "user32" Alias "InvalidateRect" (ByVal hWnd As Long, ByVal lpRect As Long, ByVal bErase As Long) As Long
+Private Declare Function GetWindowLongW Lib "user32" (ByVal hWnd&, ByVal nIndex&) As Long
+Private Declare Function SetWindowLongW Lib "user32" (ByVal hWnd&, ByVal nIndex&, ByVal dwNewLong&) As Long
+Private Declare Function DestroyWindow Lib "user32.dll" (ByVal hWnd As Long) As Long
+Private Declare Function RegisterClassEx Lib "user32" Alias "RegisterClassExW" (ByVal pcWndClassEx As Long) As Integer
+Private Declare Function RegisterWindowMessageA& Lib "user32" (ByVal lpString$)
+Private Declare Function BeginPaint Lib "user32" (ByVal hWnd As Long, lpPaint As PAINTSTRUCT) As Long
+Private Declare Function EndPaint Lib "user32" (ByVal hWnd As Long, lpPaint As PAINTSTRUCT) As Long
+Private Declare Function GetProp& Lib "user32.dll" Alias "GetPropA" (ByVal hWnd&, ByVal lpString As String)
+Private Declare Function SetProp& Lib "user32.dll" Alias "SetPropA" (ByVal hWnd&, ByVal lpString As String, ByVal hData&)
+Private Declare Function RemoveProp& Lib "user32.dll" Alias "RemovePropA" (ByVal hWnd&, ByVal lpString As String)
+Private Declare Function IsDialogMessageW& Lib "user32" (ByVal hDlg&, ByVal lpMsg&)
+Private Declare Function IsDialogMessageA& Lib "user32" (ByVal hDlg&, ByVal lpMsg&)
+Private Declare Function GetFocus Lib "user32.dll" () As Long
+Private Declare Function SetFocusApi Lib "user32.dll" Alias "SetFocus" (ByVal hWnd As Long) As Long
 
 Private Declare Function SelectObject Lib "Gdi32" (ByVal hdc As Long, ByVal hObject As Long) As Long
 Private Declare Function GetObjectAPI Lib "Gdi32" Alias "GetObjectW" (ByVal hObject As Long, ByVal nCount As Long, lpObject As Any) As Long
 Private Declare Function GetStockObject Lib "Gdi32" (ByVal nIndex As Long) As Long
-Private Declare Function GetDC Lib "User32" (ByVal hwnd As Long) As Long
-Private Declare Function ReleaseDC Lib "User32" (ByVal hwnd As Long, ByVal hdc As Long) As Long
+Private Declare Function GetDC Lib "user32" (ByVal hWnd As Long) As Long
+Private Declare Function ReleaseDC Lib "user32" (ByVal hWnd As Long, ByVal hdc As Long) As Long
 Private Declare Function DeleteDC Lib "Gdi32" (ByVal hdc As Long) As Long
 Private Declare Function DeleteObject Lib "Gdi32" (ByVal hObject As Long) As Long
 Private Declare Function PatBlt Lib "Gdi32" (ByVal hdc As Long, ByVal X As Long, ByVal Y As Long, ByVal nWidth As Long, ByVal nHeight As Long, ByVal dwRop As Long) As Long
@@ -272,15 +277,14 @@ Private Declare Function SetTextColor Lib "Gdi32" (ByVal hdc As Long, ByVal crCo
 Private Declare Function GetTextColor Lib "gdi32.dll" (ByVal hdc As Long) As Long
 Private Declare Function SetDCBrushColor Lib "gdi32.dll" (ByVal hdc As Long, ByVal crColor As Long) As Long
 Private Declare Function SetDCPenColor Lib "gdi32.dll" (ByVal hdc As Long, ByVal crColor As Long) As Long
-Private Declare Function GetSysColor Lib "User32" (ByVal nIndex As Long) As Long
+Private Declare Function GetSysColor Lib "user32" (ByVal nIndex As Long) As Long
 Private Declare Function SetBkMode Lib "Gdi32" (ByVal hdc As Long, ByVal nBkMode As Long) As Long
 Private Declare Function GetBkMode Lib "Gdi32" (ByVal hdc As Long) As Long
 Private Declare Function GetBkColor Lib "Gdi32" (ByVal hdc As Long) As Long
 Private Declare Function SetBkColor Lib "Gdi32" (ByVal hdc As Long, ByVal crColor As Long) As Long
-Private Declare Function SetFocusApi Lib "user32.dll" Alias "SetFocus" (ByVal hwnd As Long) As Long
-Private Declare Function DrawText Lib "User32" Alias "DrawTextW" (ByVal hdc As Long, ByVal lpStr As Long, ByVal nCount As Long, ByVal lpRect As Long, ByVal wFormat As Long) As Long
+Private Declare Function DrawText Lib "user32" Alias "DrawTextW" (ByVal hdc As Long, ByVal lpStr As Long, ByVal nCount As Long, ByVal lpRect As Long, ByVal wFormat As Long) As Long
 Private Declare Function PtInRect Lib "user32.dll" (ByVal lpRect As Long, ByVal X As Long, ByVal Y As Long) As Long
-Private Declare Function OffsetRect Lib "User32" (ByVal lpRect As Long, ByVal X As Long, ByVal Y As Long) As Long
+Private Declare Function OffsetRect Lib "user32" (ByVal lpRect As Long, ByVal X As Long, ByVal Y As Long) As Long
 Private Declare Function GetDeviceCaps Lib "Gdi32" (ByVal hdc As Long, ByVal nIndex As Long) As Long
 Private Declare Function CreateFontA& Lib "Gdi32" (ByVal cHeight&, ByVal cWidth&, ByVal cEscapement&, ByVal cOrientation&, ByVal cWeight&, ByVal bItalic&, ByVal bUnderline&, ByVal bStrikeOut&, ByVal iCharSet&, ByVal iOutPrecision&, ByVal iClipPrecision&, ByVal iQuality&, ByVal iPitchAndFamily&, ByVal pszFaceName$)
 Private Declare Function CreateFontIndirectW Lib "Gdi32" (ByVal pLogFont As Long) As Long
@@ -818,14 +822,14 @@ Dim hPar As Long
 Dim combo As tCOMBOBOXINFO
 
 combo.bSize = Len(combo)
-m_hwndParent = frm.hwnd
+m_hwndParent = frm.hWnd
 For Each c In frm.Controls
     clsName = ""
     On Error Resume Next
     clsName = LCase(c.LinkItem)
     If clsName <> "" Then n = n + 1
 Next
-pvSubclass m_pSubclassForm, frm.hwnd
+pvSubclass m_pSubclassForm, frm.hWnd
 m_CtlCount = n
 If n = 0 Then Exit Sub
 ReDim m_Controls(0 To n - 1)
@@ -833,6 +837,7 @@ n = 0
 For Each c In frm.Controls
     clsName = ""
     On Error Resume Next
+    'Debug.Print c.Name, c.TabIndex
     clsName = LCase(c.LinkItem)
     If clsName <> "" Then
         s = c.Caption
@@ -851,10 +856,11 @@ For Each c In frm.Controls
         nStyle = 0
         exStyle = 0
         Style2 = 0
-        hPar = Container.hwnd
+        hPar = Container.hWnd
         If c.Visible Then nStyle = nStyle Or WS_VISIBLE
         If c.Appearance = 1 Then exStyle = exStyle Or WS_EX_CLIENTEDGE
         If c.BorderStyle = 1 And (exStyle And WS_EX_CLIENTEDGE) = 0 Then nStyle = nStyle Or WS_BORDER
+        If c.RightToLeft Then exStyle = exStyle Or WS_EX_RTLREADING
         nStyle = nStyle Or WS_TABSTOP
         Select Case clsName
         Case "static": nStyle = nStyle Or SS_NOTIFY
@@ -862,20 +868,23 @@ For Each c In frm.Controls
                        If c.Alignment = 2 Then nStyle = nStyle Or SS_CENTER
                        RaiseEvent CreateStatic(c.Name, hPar, Style2, nStyle, exStyle)
                        nStyle = nStyle Or Style2
-        Case "edit": If c.Alignment = 1 Then nStyle = nStyle Or ES_RIGHT: exStyle = exStyle Or WS_EX_RIGHT Or WS_EX_RTLREADING Or WS_EX_LEFTSCROLLBAR
+        Case "edit": If c.Alignment = 1 Then nStyle = nStyle Or ES_RIGHT: exStyle = exStyle Or WS_EX_RIGHT
                      If c.Alignment = 2 Then nStyle = nStyle Or ES_CENTER
+                     If c.RightToLeft Then exStyle = exStyle Or WS_EX_RTLREADING Or WS_EX_LEFTSCROLLBAR
                      nStyle = nStyle Or ES_AUTOHSCROLL Or ES_AUTOVSCROLL Or ES_WANTRETURN
                      RaiseEvent CreateEdit(c.Name, hPar, nStyle, exStyle)
         Case "button": nStyle = nStyle Or BS_NOTIFY Or BS_MULTILINE
                      RaiseEvent CreateButton(c.Name, hPar, nStyle, exStyle)
         Case "frame": clsName = "button": nStyle = nStyle Or BS_NOTIFY Or BS_GROUPBOX Or BS_MULTILINE
-                    If c.Alignment = 1 Then nStyle = nStyle Or BS_RIGHTBUTTON Or BS_RIGHT
+                     If c.Alignment = 1 Then nStyle = nStyle Or BS_RIGHTBUTTON Or BS_RIGHT
                      RaiseEvent CreateFrame(c.Name, hPar, nStyle, exStyle)
         Case "listbox": nStyle = nStyle Or LBS_NOTIFY Or WS_VSCROLL Or LBS_HASSTRINGS Or LBS_NOINTEGRALHEIGHT
-                    If c.Alignment = 1 Then exStyle = exStyle Or EX_STYLES.WS_EX_RIGHT Or WS_EX_RTLREADING Or WS_EX_LEFTSCROLLBAR
+                    If c.Alignment = 1 Then exStyle = exStyle Or EX_STYLES.WS_EX_RIGHT
+                    If c.RightToLeft Then exStyle = exStyle Or WS_EX_RTLREADING Or WS_EX_LEFTSCROLLBAR
                     RaiseEvent CreateListBox(c.Name, hPar, nStyle, exStyle)
         Case "combobox": nStyle = nStyle Or WS_VSCROLL Or CBS_HASSTRINGS Or CBS_NOINTEGRALHEIGHT
-                    If c.Alignment = 1 Then exStyle = exStyle Or EX_STYLES.WS_EX_RIGHT Or WS_EX_RTLREADING Or WS_EX_LEFTSCROLLBAR
+                    If c.Alignment = 1 Then exStyle = exStyle Or EX_STYLES.WS_EX_RIGHT
+                    If c.RightToLeft Then exStyle = exStyle Or WS_EX_RTLREADING Or WS_EX_LEFTSCROLLBAR
                     RaiseEvent CreateComboBox(c.Name, hPar, nStyle, exStyle)
                     If (nStyle And 3) = 0 Then nStyle = nStyle Or CBS_DROPDOWN
         Case "checkbox": clsName = "button": nStyle = nStyle Or BS_AUTOCHECKBOX Or BS_MULTILINE
@@ -897,6 +906,8 @@ For Each c In frm.Controls
         win = CreateWindowExW(exStyle, StrPtr(clsName), StrPtr(s), nStyle, l, t, w, h, hPar, n + 1, App.hInstance, 0)
         If clsName = "combobox" Then
             GetComboBoxInfo win, VarPtr(combo)
+            m_Controls(n).hList = combo.hwndList
+            m_Controls(n).hEdit = combo.hwndItem
             If combo.hwndList Then
                 SetWindowLongW combo.hwndList, -12&, n + 1
                 'SetProp combo.hwndList, "_ID_", n + 1
@@ -910,7 +921,7 @@ For Each c In frm.Controls
         End If
         Set fnt = c.Font
         SendMessageW win, WM_SETFONT, fnt.hFont, 1
-        m_Controls(n).hwnd = win
+        m_Controls(n).hWnd = win
         m_Controls(n).sName = c.Name
         m_Controls(n).sClass = clsName
         m_Controls(n).BackColor = FixColor(c.BackColor)
@@ -1280,12 +1291,7 @@ Dim rc As RECTL
 MouseRow = -1&
 win = GetWindow(ctl): If win = 0 Then Exit Property
 ix = GetIx(ctl): If ix < 0 Then Exit Property
-If m_Controls(ix).sClass = "combobox" Then
-    Dim cbi As tCOMBOBOXINFO
-    cbi.bSize = Len(cbi)
-    GetComboBoxInfo win, VarPtr(cbi)
-    win = cbi.hwndList
-End If
+If m_Controls(ix).sClass = "combobox" Then win = m_Controls(ix).hList: If win = 0 Then Exit Property
 Dim ar(0 To 1) As Long
 GetCursorPos VarPtr(ar(0))
 ScreenToClient win, VarPtr(ar(0))
@@ -1399,14 +1405,8 @@ Dim ix As Long, nData As Long
 Dim nStart As Long, nEnd As Long
 win = GetWindow(ctl): If win = 0 Then Exit Property
 ix = GetIx(ctl): If ix < 0 Then Exit Property
-If m_Controls(ix).sClass = "edit" Then
-    Call SendMessageW(win, EM_REPLACESEL, 1, StrPtr(txt))
-ElseIf m_Controls(ix).sClass = "combobox" Then
-    Dim cbi As tCOMBOBOXINFO
-    cbi.bSize = Len(cbi)
-    GetComboBoxInfo win, VarPtr(cbi)
-    Call SendMessageW(cbi.hwndItem, EM_REPLACESEL, 1, StrPtr(txt))
-End If
+If m_Controls(ix).hEdit Then win = m_Controls(ix).hEdit
+Call SendMessageW(win, EM_REPLACESEL, 1, StrPtr(txt))
 End Property
 
 Function CurLine(ctl As Object, Optional ByVal charPos As Long = -1&) As Long
@@ -1697,12 +1697,7 @@ Dim win As Long
 Dim ix As Long
 win = GetWindow(ctl): If win = 0 Then Exit Sub
 ix = GetIx(ctl): If ix < 0 Then Exit Sub
-If m_Controls(ix).sClass = "combobox" Then
-    Dim cbi As tCOMBOBOXINFO
-    cbi.bSize = Len(cbi)
-    GetComboBoxInfo win, VarPtr(cbi)
-    win = cbi.hwndItem
-End If
+If m_Controls(ix).hEdit Then win = m_Controls(ix).hEdit
 AddStyle ctl, ES_PASSWORD
 SendMessageW win, EM_SETPASSWORDCHAR, ch, 0
 End Sub
@@ -1764,12 +1759,7 @@ Dim win As Long
 Dim ix As Long
 win = GetWindow(ctl): If win = 0 Then Exit Property
 ix = GetIx(ctl): If ix < 0 Then Exit Property
-If m_Controls(ix).sClass = "combobox" Then
-    Dim cbi As tCOMBOBOXINFO
-    cbi.bSize = Len(cbi)
-    GetComboBoxInfo win, VarPtr(cbi)
-    win = cbi.hwndItem
-End If
+If m_Controls(ix).hEdit Then win = m_Controls(ix).hEdit
 Style = GetWindowLongW(win, -16&)
 If b = False Then Style = Style Or ES_NOHIDESEL Else Style = Style And Not ES_NOHIDESEL
 SetWindowLongW win, -16&, Style
@@ -1781,12 +1771,7 @@ Dim win As Long
 Dim ix As Long
 win = GetWindow(ctl): If win = 0 Then Exit Property
 ix = GetIx(ctl): If ix < 0 Then Exit Property
-If m_Controls(ix).sClass = "combobox" Then
-    Dim cbi As tCOMBOBOXINFO
-    cbi.bSize = Len(cbi)
-    GetComboBoxInfo win, VarPtr(cbi)
-    win = cbi.hwndItem
-End If
+If m_Controls(ix).hEdit Then win = m_Controls(ix).hEdit
 Style = GetWindowLongW(win, -16&)
 HideSelection = (Style And ES_NOHIDESEL) = 0
 End Property
@@ -1797,12 +1782,7 @@ Dim win As Long
 Dim ix As Long
 win = GetWindow(ctl): If win = 0 Then Exit Property
 ix = GetIx(ctl): If ix < 0 Then Exit Property
-If m_Controls(ix).sClass = "combobox" Then
-    Dim cbi As tCOMBOBOXINFO
-    cbi.bSize = Len(cbi)
-    GetComboBoxInfo win, VarPtr(cbi)
-    win = cbi.hwndItem
-End If
+If m_Controls(ix).hEdit Then win = m_Controls(ix).hEdit
 Style = GetWindowLongW(win, -16&)
 If b = False Then Style = Style Or ES_READONLY Else Style = Style And Not ES_READONLY
 SetWindowLongW win, -16&, Style
@@ -1814,12 +1794,7 @@ Dim win As Long
 Dim ix As Long
 win = GetWindow(ctl): If win = 0 Then Exit Property
 ix = GetIx(ctl): If ix < 0 Then Exit Property
-If m_Controls(ix).sClass = "combobox" Then
-    Dim cbi As tCOMBOBOXINFO
-    cbi.bSize = Len(cbi)
-    GetComboBoxInfo win, VarPtr(cbi)
-    win = cbi.hwndItem
-End If
+If m_Controls(ix).hEdit Then win = m_Controls(ix).hEdit
 Style = GetWindowLongW(win, -16&)
 Locked = (Style And ES_READONLY) = 0
 End Property
@@ -1829,12 +1804,7 @@ Dim win As Long
 Dim ix As Long
 win = GetWindow(ctl): If win = 0 Then Exit Property
 ix = GetIx(ctl): If ix < 0 Then Exit Property
-If m_Controls(ix).sClass = "combobox" Then
-    Dim cbi As tCOMBOBOXINFO
-    cbi.bSize = Len(cbi)
-    GetComboBoxInfo win, VarPtr(cbi)
-    win = cbi.hwndItem
-End If
+If m_Controls(ix).hEdit Then win = m_Controls(ix).hEdit
 SendMessageW win, EM_LIMITTEXT, n, 0
 End Property
 
@@ -1852,12 +1822,7 @@ End Property
 Property Let NumbersOnly(ctl As Object, b As Boolean)
 Dim win As Long
 Dim ix As Long
-If m_Controls(ix).sClass = "combobox" Then
-    Dim cbi As tCOMBOBOXINFO
-    cbi.bSize = Len(cbi)
-    GetComboBoxInfo win, VarPtr(cbi)
-    win = cbi.hwndItem
-End If
+If m_Controls(ix).hEdit Then win = m_Controls(ix).hEdit
 Dim Style As Long
 win = GetWindow(ctl): If win = 0 Then Exit Property
 ix = GetIx(ctl): If ix < 0 Then Exit Property
@@ -1869,18 +1834,41 @@ End Property
 Property Let RTL(ctl As Object, b As Boolean)
 Dim win As Long
 Dim ix As Long
-Dim Style As Long
+Dim Style As Long, xStyle As Long
+Dim exStyle As Long, xexStyle As Long
 win = GetWindow(ctl): If win = 0 Then Exit Property
 ix = GetIx(ctl): If ix < 0 Then Exit Property
-If m_Controls(ix).sClass = "combobox" Then
-    Dim cbi As tCOMBOBOXINFO
-    cbi.bSize = Len(cbi)
-    GetComboBoxInfo win, VarPtr(cbi)
-    win = cbi.hwndItem
+exStyle = WS_EX_RTLREADING
+
+Select Case m_Controls(ix).sClass
+Case "button": Style = BS_RIGHTBUTTON
+Case "listbox", "combobox": exStyle = exStyle Or WS_EX_RIGHT Or WS_EX_LEFTSCROLLBAR
+Case "edit": exStyle = exStyle Or WS_EX_RIGHT Or WS_EX_LEFTSCROLLBAR
+End Select
+If b Then
+    AddStyle ctl, Style, xStyle
+    AddExStyle ctl, exStyle, xexStyle
+Else
+    AddStyle ctl, xStyle, Style
+    AddExStyle ctl, xexStyle, exStyle
 End If
-Style = GetWindowLongW(win, -20&)
-If b Then Style = Style Or &H3000& Else Style = Style Or Not &H3000&
-SetWindowLongW win, -20&, Style
+End Property
+
+Property Let Alignment(ctl As Object, ByVal a As Long)
+Dim win As Long
+Dim ix As Long
+Dim Style As Long, xStyle As Long
+Dim exStyle As Long, xexStyle As Long
+win = GetWindow(ctl): If win = 0 Then Exit Property
+ix = GetIx(ctl): If ix < 0 Then Exit Property
+Select Case m_Controls(ix).sClass
+Case "static": Style = IIf(a = 0, 0, IIf(a = 1, SS_RIGHT, SS_CENTER)): xStyle = Style Xor 3&
+Case "edit": Style = IIf(a = 0, 0, IIf(a = 1, ES_RIGHT, ES_CENTER)): xStyle = Style Xor 3&: If a = 1 Then exStyle = exStyle Or WS_EX_RIGHT Else xexStyle = xexStyle Or WS_EX_RIGHT
+Case "listbox", "combobox": If a = 1 Then exStyle = exStyle Or WS_EX_RIGHT Else xexStyle = xexStyle Or WS_EX_RIGHT
+Case "button": Style = IIf(a = 0, BS_LEFT, IIf(a = 1, BS_RIGHT, BS_CENTER)): xStyle = Style Xor &H300&
+End Select
+AddStyle ctl, Style, xStyle
+AddExStyle ctl, exStyle, xexStyle
 End Property
 
 Property Let ScrollBars(ctl As Object, ByVal v As Long)
@@ -1909,14 +1897,6 @@ win = GetWindow(ctl): If win = 0 Then Exit Sub
 SetWindowPos win, 0, 0, 0, 0, 0, SWP_NOSIZE Or SWP_NOMOVE Or SWP_NOACTIVATE
 End Sub
 
-Property Let Alignment(ctl As Object, v As Long)
-Dim Style As Long, NoStyle As Long
-If v = 0 Then NoStyle = 3
-If v = 1 Then Style = 1: NoStyle = 2
-If v = 2 Then Style = 2: NoStyle = 1
-AddStyle ctl, Style, NoStyle
-End Property
-
 Property Let BorderStyle(ctl As Object, ByVal v As Long)
 Dim win As Long
 win = GetWindow(ctl): If win = 0 Then Exit Property
@@ -1927,7 +1907,7 @@ End Property
 Property Let Appearance(ctl As Object, ByVal v As Long)
 Dim win As Long
 win = GetWindow(ctl): If win = 0 Then Exit Property
-If v Then AddExStyle ctl, 512 Else AddStyle ctl, 0, 512
+If v Then AddExStyle ctl, WS_EX_CLIENTEDGE Else AddStyle ctl, 0, WS_EX_CLIENTEDGE
 SetWindowPos win, 0, 0, 0, 0, 0, SWP_NOMOVE Or SWP_NOSIZE Or SWP_NOZORDER Or SWP_NOACTIVATE Or SWP_FRAMECHANGED
 End Property
 
@@ -1975,10 +1955,10 @@ End Sub
 
 Public Function GetWindow(ctl As Object)
 Dim id As Long
-If TypeOf ctl Is Form Then GetWindow = ctl.hwnd: Exit Function
+If TypeOf ctl Is Form Then GetWindow = ctl.hWnd: Exit Function
 id = ctl.LinkTimeout - 1
 If id < 0 Or id >= m_CtlCount Then Exit Function
-GetWindow = m_Controls(id).hwnd
+GetWindow = m_Controls(id).hWnd
 End Function
 
 Private Function GetIx(ctl As Object)
@@ -2027,13 +2007,14 @@ Private Function High16(ByVal n As Long) As Integer
 GetMem2 VarPtr(n) + 2, High16
 End Function
 
-Private Function GetId(ByVal hwnd As Long) As Long
+Private Function GetId(ByVal hWnd As Long) As Long
 Dim id As Long
 'id = GetProp(hwnd, "_ID_")
-id = GetDlgCtrlID(hwnd)
+id = GetDlgCtrlID(hWnd)
 If id <= 0 Or id > m_CtlCount Then Exit Function
-If m_Controls(id - 1).sClass = "combobox" Then GetId = id: Exit Function
-If m_Controls(id - 1).hwnd <> hwnd Then Exit Function
+If m_Controls(id - 1).hWnd = hWnd Then GetId = id: Exit Function
+If m_Controls(id - 1).sClass <> "combobox" Then Exit Function
+If m_Controls(id - 1).hList <> hWnd And m_Controls(id - 1).hEdit <> hWnd Then Exit Function
 GetId = id
 End Function
 
@@ -2110,7 +2091,7 @@ End Sub
 
 
 
-Public Function SubclassProc(ByVal hwnd As Long, ByVal wMsg As Long, ByVal wParam As Long, ByVal lParam As Long, Handled As Boolean) As Long
+Public Function SubclassProc(ByVal hWnd As Long, ByVal wMsg As Long, ByVal wParam As Long, ByVal lParam As Long, Handled As Boolean) As Long
 Static bTrack As Boolean
 Dim id As Long
 Dim n As Long
@@ -2133,7 +2114,7 @@ Dim Style As Long, exStyle As Long
 Dim cbi As tCOMBOBOXINFO
 Dim ps As PAINTSTRUCT
 
-id = GetId(hwnd)
+id = GetId(hWnd)
 If id = 0 Then Exit Function
 
 id = id - 1
@@ -2147,29 +2128,29 @@ Select Case wMsg
 Case WM_KILLFOCUS:
     If clas <> "edit" Then Exit Function
     If m_Controls(id).CueBanner = "" Then Exit Function
-    If GetWindowTextLength(hwnd) Then Exit Function
-    InvalidateRectV hwnd, 0, 1
+    If GetWindowTextLength(hWnd) Then Exit Function
+    InvalidateRectV hWnd, 0, 1
 Case WM_PAINT:
     SubclassProc = 1
     If clas <> "edit" And clas <> "combobox" Then Exit Function
     If clas = "combobox" And ObjPtr(m_Controls(id).m_SubclassItem) <> 0 Then Exit Function
     If m_Controls(id).CueBanner = "" Then Exit Function
-    If GetWindowTextLength(hwnd) Then Exit Function
-    SubclassProc = DefSubclassProc413(hwnd, wMsg, wParam, lParam)
+    If GetWindowTextLength(hWnd) Then Exit Function
+    SubclassProc = DefSubclassProc413(hWnd, wMsg, wParam, lParam)
     Handled = True
     SubclassProc = 0
     'PostMessageW hWnd, WM_CUEBANNER, 0, 0
-    win = hwnd
+    win = hWnd
     GetClientRect win, rc2
     rc = rc2
     If clas = "combobox" Then
         cbi.bSize = Len(cbi)
-        GetComboBoxInfo hwnd, VarPtr(cbi)
+        GetComboBoxInfo hWnd, VarPtr(cbi)
         rc = cbi.rcItem
     End If
     Style = GetWindowLongW(win, -16&)
     exStyle = GetWindowLongW(win, -20&)
-    hFont = SendMessageW(hwnd, WM_GETFONT, 0, 0)
+    hFont = SendMessageW(hWnd, WM_GETFONT, 0, 0)
     GetObjectAPI hFont, Len(lf), lf
     lf.lfItalic = 1
     lf.lfWeight = 0
@@ -2209,7 +2190,7 @@ Case WM_MOUSEMOVE:
     If clas <> "combobox" Or ObjPtr(m_Controls(id).m_SubclassItem) = 0 Then
         tme.cbSize = Len(tme)
         tme.dwFlags = 3
-        tme.hwndTrack = hwnd
+        tme.hwndTrack = hWnd
         tme.dwHoverTime = -1&
         TrackMouseEvent VarPtr(tme)
         bTrack = True
@@ -2224,7 +2205,7 @@ Case WM_MOUSEHOVER:
     RaiseEvent MouseHover(sName, wParam And 3, GetShift(wParam), Low16(lParam), High16(lParam))
     tme.cbSize = Len(tme)
     tme.dwFlags = 2
-    tme.hwndTrack = hwnd
+    tme.hwndTrack = hWnd
     tme.dwHoverTime = -1&
     TrackMouseEvent VarPtr(tme)
     bTrack = True
@@ -2237,11 +2218,11 @@ Case WM_LBUTTONDBLCLK: If clas = "edit" Then RaiseEvent DblClick(sName)
 Case WM_MOUSEWHEEL:
     ar(0) = Low16(lParam)
     ar(1) = High16(lParam)
-    ScreenToClient (hwnd), VarPtr(ar(0))
+    ScreenToClient (hWnd), VarPtr(ar(0))
     RaiseEvent MouseWheel(sName, High16(wParam), GetShift(Low16(wParam)), ar(0), ar(1))
 Case WM_KEYDOWN: i = wParam: RaiseEvent KeyDown(sName, i, GetShift)
     wParam = i
-    If wParam = vbKeyA Then If GetShift = vbCtrlMask Then SendMessageW hwnd, EM_SETSEL, 0&, -1&: wParam = 0: Handled = True: Exit Function
+    If wParam = vbKeyA Then If GetShift = vbCtrlMask Then SendMessageW hWnd, EM_SETSEL, 0&, -1&: wParam = 0: Handled = True: Exit Function
 Case WM_KEYUP: i = wParam: RaiseEvent KeyUp(sName, i, GetShift)
     wParam = i
 Case WM_CHAR: i = wParam: RaiseEvent KeyPress(sName, i)
@@ -2267,7 +2248,7 @@ End Select
 '    End If
 End Function
 
-Public Function SubclassFormProc(ByVal hwnd As Long, ByVal wMsg As Long, ByVal wParam As Long, ByVal lParam As Long, Handled As Boolean) As Long
+Public Function SubclassFormProc(ByVal hWnd As Long, ByVal wMsg As Long, ByVal wParam As Long, ByVal lParam As Long, Handled As Boolean) As Long
 Static bTrack As Boolean
 Dim id As Integer
 Dim note As Integer
@@ -2283,6 +2264,15 @@ Dim iMsg As Msg
 
 RaiseEvent message("", wMsg, wParam, lParam, r, Handled)
 If Handled Then SubclassFormProc = r: Exit Function
+
+If wMsg = WM_COMMAND Then
+If GetAsyncKeyState(vbKeyTab) < 0 Then
+'Debug.Print lParam, GetFocus, High16(wParam)
+If lParam <> GetFocus Then
+    NextTab lParam
+End If
+End If
+End If
 
 Select Case wMsg
 Case &H132& To &H138&:
@@ -2300,7 +2290,7 @@ Case WM_DRAWITEM:
     id = wParam - 1
     If id < 0 Or id >= m_CtlCount Then Exit Function
     CopyMemory VarPtr(di), lParam, Len(di)
-    If m_Controls(id).hwnd <> di.hwndItem Then Exit Function
+    If m_Controls(id).hWnd <> di.hwndItem Then Exit Function
     l = di.rcItem.Left: t = di.rcItem.Top: w = di.rcItem.Right - l: h = di.rcItem.Bottom - t
     RaiseEvent OwnerDraw(m_Controls(id).sName, di.hdc, di.itemID, l, t, w, h, di.itemAction, di.itemState)
     Handled = True
@@ -2310,7 +2300,7 @@ Case WM_COMMAND:
     CopyMemory VarPtr(note), VarPtr(wParam) + 2, 2
     If id <= 0 Or id > m_CtlCount Then Exit Function
     id = id - 1
-    If m_Controls(id).hwnd <> lParam Then Exit Function
+    If m_Controls(id).hWnd <> lParam Then Exit Function
     sName = m_Controls(id).sName
     If m_Controls(id).sClass = "edit" Then
         Select Case note
@@ -2366,13 +2356,13 @@ Case WM_COMMAND:
 Case WM_MOUSEWHEEL:
     ar(0) = Low16(lParam)
     ar(1) = High16(lParam)
-    ScreenToClient (hwnd), VarPtr(ar(0))
+    ScreenToClient (hWnd), VarPtr(ar(0))
     RaiseEvent MouseWheel("", High16(wParam), GetShift(Low16(wParam)), ar(0), ar(1))
 Case WM_MOUSEMOVE:
     If bTrack = False Then
         tme.cbSize = Len(tme)
         tme.dwFlags = 3
-        tme.hwndTrack = hwnd
+        tme.hwndTrack = hWnd
         tme.dwHoverTime = -1&
         TrackMouseEvent VarPtr(tme)
         bTrack = True
@@ -2383,7 +2373,7 @@ Case WM_MOUSEHOVER:
     RaiseEvent MouseHover("", wParam And 3, GetShift(wParam), Low16(lParam), High16(lParam))
     tme.cbSize = Len(tme)
     tme.dwFlags = 2
-    tme.hwndTrack = hwnd
+    tme.hwndTrack = hWnd
     tme.dwHoverTime = -1&
     TrackMouseEvent VarPtr(tme)
     bTrack = True
@@ -2395,13 +2385,13 @@ End Select
 '    End If
 End Function
 
-Public Function SubclassTTTProc(ByVal hwnd As Long, ByVal wMsg As Long, ByVal wParam As Long, ByVal lParam As Long, Handled As Boolean) As Long
+Public Function SubclassTTTProc(ByVal hWnd As Long, ByVal wMsg As Long, ByVal wParam As Long, ByVal lParam As Long, Handled As Boolean) As Long
 Select Case wMsg
 
 End Select
 End Function
 
-Public Function SubclassComboProc(ByVal hwnd As Long, ByVal wMsg As Long, ByVal wParam As Long, ByVal lParam As Long, Handled As Boolean) As Long
+Public Function SubclassComboProc(ByVal hWnd As Long, ByVal wMsg As Long, ByVal wParam As Long, ByVal lParam As Long, Handled As Boolean) As Long
 Static bTrack As Boolean
 Dim id As Long
 Dim n As Long
@@ -2423,7 +2413,7 @@ Dim Style As Long
 Dim cbi As tCOMBOBOXINFO
 Dim ps As PAINTSTRUCT
 
-id = GetId(hwnd)
+id = GetId(hWnd)
 If id = 0 Then Exit Function
 
 id = id - 1
@@ -2431,23 +2421,23 @@ sName = m_Controls(id).sName
 Select Case wMsg
 Case WM_KILLFOCUS:
     If m_Controls(id).CueBanner = "" Then Exit Function
-    If GetWindowTextLength(hwnd) Then Exit Function
-    InvalidateRectV hwnd, 0, 1
+    If GetWindowTextLength(hWnd) Then Exit Function
+    InvalidateRectV hWnd, 0, 1
 Case WM_PAINT:
     SubclassComboProc = 1
     If m_Controls(id).CueBanner = "" Then Exit Function
-    If GetWindowTextLength(hwnd) Then Exit Function
+    If GetWindowTextLength(hWnd) Then Exit Function
     Handled = True
     SubclassComboProc = 0
-    GetClientRect hwnd, rc2
+    GetClientRect hWnd, rc2
     rc = rc2
-    Style = GetWindowLongW(hwnd, -16&)
-    hFont = SendMessageW(hwnd, WM_GETFONT, 0, 0)
+    Style = GetWindowLongW(hWnd, -16&)
+    hFont = SendMessageW(hWnd, WM_GETFONT, 0, 0)
     GetObjectAPI hFont, Len(lf), lf
     lf.lfItalic = 1
     lf.lfWeight = 0
     hFont = CreateFontIndirectW(VarPtr(lf))
-    dc = BeginPaint(hwnd, ps)
+    dc = BeginPaint(hWnd, ps)
     SelectObject dc, hFont
     SelectObject dc, GetStockObject(DC_BRUSH)
     SetDCBrushColor dc, m_Controls(id).BackColor
@@ -2460,14 +2450,14 @@ Case WM_PAINT:
     If Style And ES_CENTER Then OffsetRect VarPtr(rc), (rc2.Right - rc.Right) \ 2, 0
     If rc.Right > rc2.Right Then rc.Right = rc2.Right
     DrawText dc, StrPtr(m_Controls(id).CueBanner), -1, VarPtr(rc), flag
-    EndPaint hwnd, ps
+    EndPaint hWnd, ps
     DeleteObject hFont
     Exit Function
 Case WM_MOUSEMOVE:
     If bTrack = False Then
         tme.cbSize = Len(tme)
         tme.dwFlags = 3
-        tme.hwndTrack = hwnd
+        tme.hwndTrack = hWnd
         tme.dwHoverTime = -1&
         TrackMouseEvent VarPtr(tme)
         bTrack = True
@@ -2480,27 +2470,27 @@ Case WM_MOUSEHOVER:
     RaiseEvent MouseHover(sName, wParam And 3, GetShift(wParam), Low16(lParam), High16(lParam))
     tme.cbSize = Len(tme)
     tme.dwFlags = 2
-    tme.hwndTrack = hwnd
+    tme.hwndTrack = hWnd
     tme.dwHoverTime = -1&
     TrackMouseEvent VarPtr(tme)
     bTrack = True
 End Select
 End Function
 
-Private Sub pvSubclass(o As IUnknown, ByVal hwnd As Long)
-    Set o = InitSubclassingThunk(hwnd, Me, InitAddressOfMethod(Me, 5).SubclassFormProc(0, 0, 0, 0, 0))
+Private Sub pvSubclass(o As IUnknown, ByVal hWnd As Long)
+    Set o = InitSubclassingThunk(hWnd, Me, InitAddressOfMethod(Me, 5).SubclassFormProc(0, 0, 0, 0, 0))
 End Sub
 
-Private Sub pvSubclass2(o As IUnknown, ByVal hwnd As Long)
-    Set o = InitSubclassingThunk(hwnd, Me, InitAddressOfMethod(Me, 5).SubclassProc(0, 0, 0, 0, 0))
+Private Sub pvSubclass2(o As IUnknown, ByVal hWnd As Long)
+    Set o = InitSubclassingThunk(hWnd, Me, InitAddressOfMethod(Me, 5).SubclassProc(0, 0, 0, 0, 0))
 End Sub
 
-Private Sub pvSubclass3(o As IUnknown, ByVal hwnd As Long)
-    Set o = InitSubclassingThunk(hwnd, Me, InitAddressOfMethod(Me, 5).SubclassTTTProc(0, 0, 0, 0, 0))
+Private Sub pvSubclass3(o As IUnknown, ByVal hWnd As Long)
+    Set o = InitSubclassingThunk(hWnd, Me, InitAddressOfMethod(Me, 5).SubclassTTTProc(0, 0, 0, 0, 0))
 End Sub
 
-Private Sub pvSubclassItem(o As IUnknown, ByVal hwnd As Long)
-    Set o = InitSubclassingThunk(hwnd, Me, InitAddressOfMethod(Me, 5).SubclassComboProc(0, 0, 0, 0, 0))
+Private Sub pvSubclassItem(o As IUnknown, ByVal hWnd As Long)
+    Set o = InitSubclassingThunk(hWnd, Me, InitAddressOfMethod(Me, 5).SubclassComboProc(0, 0, 0, 0, 0))
 End Sub
 
 Private Sub pvUnsubclass(o As IUnknown)
@@ -2525,7 +2515,7 @@ Private Function InitAddressOfMethod(pObj As Object, ByVal MethodParamCount As L
     Debug.Assert lSize = THUNK_SIZE
 End Function
 
-Public Function InitSubclassingThunk(ByVal hwnd As Long, pObj As Object, ByVal pfnCallback As Long) As IUnknown
+Public Function InitSubclassingThunk(ByVal hWnd As Long, pObj As Object, ByVal pfnCallback As Long) As IUnknown
     Dim STR_THUNK       As String: STR_THUNK = "6AAAAABag+oFgepwEBAAV1aLdCQUg8YIgz4AdC+L+oHHKBIQAIvCBQwREACri8IFSBEQAKuLwgVYERAAq4vCBYAREACruQkAAADzpYHCKBIQAFJqHP9SEFqL+IvCq7gBAAAAqzPAq4tEJAyri3QkFKWlM8Crg+8cagBX/3IM/3cM/1IYi0QkGIk4Xl+4XBIQAC1wEBAAwhAADx8Ai0QkCIM4AHUqg3gEAHUkgXgIwAAAAHUbgXgMAAAARnUSi1QkBP9CBItEJAyJEDPAwgwAuAJAAIDCDACQi1QkBP9CBItCBMIEAA8fAItUJAT/SgSLQgR1GIsKUv9xDP9yDP9RHItUJASLClL/URQzwMIEAJBVi+yLVRj/QgT/QhiLQhg7QgR0b4tCEIXAdGiLCotBLIXAdDdS/9BaiUIIg/gBd1OFwHUJgX0MAwIAAHRGiwpS/1EwWoXAdTuLClJq8P9xJP9RKFqpAAAACHUoUjPAUFCNRCQEUI1EJARQ/3UU/3UQ/3UM/3UI/3IQ/1IUWVhahcl1E1KLCv91FP91EP91DP91CP9RIFr/ShhQUug4////WF3CGAAPHwA=" ' 9.6.2020 13:56:03
     Const THUNK_SIZE    As Long = 492
     Static hThunk       As Long
@@ -2561,7 +2551,7 @@ Public Function InitSubclassingThunk(ByVal hwnd As Long, pObj As Object, ByVal p
             pvThunkGlobalData("InitSubclassingThunk") = hThunk
         #End If
     End If
-    lSize = CallWindowProcW(hThunk, hwnd, 0, VarPtr(aParams(0)), VarPtr(InitSubclassingThunk))
+    lSize = CallWindowProcW(hThunk, hWnd, 0, VarPtr(aParams(0)), VarPtr(InitSubclassingThunk))
     Debug.Assert lSize = THUNK_SIZE
 End Function
 
@@ -2831,3 +2821,51 @@ For i = 1 To Len(s)
 Next
 End Function
 
+Private Function NextTab(ByVal hWnd As Long) As Long
+Static active As Boolean
+Dim frm As Form
+Dim c
+Dim ti As Long
+Dim a() As Long
+Dim w As Long
+Dim cti As Long
+Dim d As Long
+Dim cnt As Long
+Set frm = Screen.ActiveForm
+If frm Is Nothing Then Exit Function
+If active Then Exit Function
+active = True
+cnt = frm.Controls.Count * 2
+ReDim a(0 To cnt)
+cti = -1
+For Each c In frm.Controls
+    ti = -1
+    w = 0
+    On Error Resume Next
+    ti = c.TabIndex
+    If ti >= 0 Then
+        If TypeOf c Is Label Then
+            If c.LinkItem <> "" Then
+                w = m_Controls(c.LinkTimeout - 1).hWnd
+            End If
+        Else
+            On Error Resume Next
+            If c.TabStop Then w = c.hWnd
+        End If
+        If w <> 0 Then
+            a(ti) = w
+            If w = hWnd Then cti = ti
+        End If
+    End If
+Next
+If cti = -1 Then active = False: Exit Function
+If GetAsyncKeyState(vbKeyShift) < 0 Then d = -1 Else d = 1
+ti = cti + d
+Do While ti <> cti
+    If ti < 0 Then ti = cnt Else If ti > cnt Then ti = 0
+    If ti = cti Then Exit Do
+    If a(ti) Then NextTab = a(ti): SetFocusApi a(ti): active = False: Exit Function
+    ti = ti + d
+Loop
+active = False
+End Function
