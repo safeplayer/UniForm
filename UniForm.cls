@@ -28,29 +28,37 @@ Attribute VB_Exposed = False
 '    5. In Form Code, add a class object member: Public WithEvents Uni As UniForm
 '    6. At Form_Load: Set Uni = New UniForm: Uni.Init Me ' <- This will create the controls and hide the labels
 '    7. The class name can contain some special style flags after a hyphen. e.g. For multiline and locked Edit control: Edit-lm
-'       The following flags are supported:
+'       The complete list of all supported flags per control - below.
+'       For a complete control of styles and some rare styles, you can catch Create event. For a ListBox catch CreateListBox event, for a TextBox catch CreateEdit event etc. For other controls use generic Create event
+'       Every Create_xxx event uses a special styles enum for the specific control-type. Add (or exclude) the desired styles and ex_styles to the parameters
+'    8. The class provides VB-style wrappers for useful control methods. The general syntax is Uni.Method(control). e.g. Uni.ToolTipText(lstFiles) = "Drag files to the list"
+'       A list of all wrapper methods and properties - below.
+'    9. Events: Standard VB events like MouseMove, KeyDown etc, In addition: MouseWheel, MouseEnter, MouseLeave, MouseHover, OwnerDraw(for owner-drawn controls), Message(all messages, including user messages)
+'       Unlike VB-events, a specific event handler is for ALL CONTROLS: Uni_Event(ControlName...). Use ControlName to handle an individual control inside the event handler
+'       The Compare events is used when calling SortList for ListBox or ComboBox with eSortCustom flag. The event expects Cmp parameter to become -1,1 or 0 according to items comparison.
+'   10. Control-Arrays: It is possible to create arrays of Labels and refer to each element by Index: Uni.Text(txtName(i)) = asName(i). All UniForm events pass iIndex parameter (which is -1 if not an array)
+'       It is also possible to dynamically add controls to the form: Load txtName(n) and then add to UniForm: Uni.AddControl txtName(n)
+'   11. Bonus: For tooltips, there is HideToolTip and ShowToolTip to show the tooltip with arbitrary text and position
+'
+'   List of all supported style flags for controls creation: (The flags appear after the class name and a hyphen e.g. ListBox-sm)
 '           Edit:lmn = l(locked)/m(multiline)/n(number only)
 '           Button/Checkbox/Radiobutton/3State:og = o(owner-draw)/g(graphical-pushlike)
 '           Listbox:smceov = s(sorted)/m(multiselection)/c(multicolumn)/e(extended selection)/o(owner-draw)/v(owner-draw-variable)
 '           ComboBox:scdpaov = s(sorted)/c(combo+edit)/d(droplist)/p(simple-no-drop)/a(auto-hscroll)/o(owner-draw)/v(owner-draw-variable)
 '           Static:ibo = i(Icon)/b(Bitmap)/o(Owner-draw)
-'       For a complete control of styles and some rare styles, you can catch Create event. For a ListBox catch CreateListBox event, for a TextBox catch CreateEdit event etc. For other controls use generic Create event
-'       Every Create_xxx event uses a special styles enum for the specific control-type. Add (or exclude) the desired styles and ex_styles to the parameters
-'    8. The class provides wrappers for useful control methods. The general syntax is Uni.Method(control). e.g. Uni.ToolTipText(lstFiles) = "Drag files to the list"
-'       ListBox and ComboBox: AddItem, RemoveItem, List, ListCount, ListIndex, ItemData, ClearList, SortList, MouseRow, TopIndex, FindItem, ListWidth, ItemHeight, VisibleItems, IsItemVisible
-'       TextBox (and ComboBox's edit part): SetPasswordChar, HideSelection, Locked, MaxLength, NumbersOnly, RTL, ScrollBars,
-'                                           SelStart, SelLen, SelSet, SelText, CurLine, LineStart, LineLen, GetLine, CharPoint, CharAtPoint,
-'       ComboBox: DropState (Get/Let)
-'       CheckBox/RadioButton: Checked (Get/Let)
-'       For all controls: Tag(Variant), Text, Visible, Enable, ToolTipText, ToolTipFlags(alignment of tooltiptext), MouseInWindow, TextWidth(text width with control's font), TextHeight
-'       Left, Top, Width, Height, ClientWidth, ClientHeight, Move -> All values Get/Let are in pixels!
-'       AcceptFiles, SetMouseCursor, BackColor, ForeColor, BackStyle, SetFocus, ZOrder, Alignment, BorderStyle, Appearance, SetFont, Refresh, GetWindow
+'
+'   List of all supported wrapper methods: (methods with (rw) are properties with Get(r) and/or Let(w))
+'       ListBox and ComboBox: AddItem, RemoveItem, List(rw), ListCount(r), ListIndex(rw), ItemData(rw), ClearList, SortList, MouseRow(r), TopIndex(rw),
+'                             FindItem, ListWidth(w), ItemHeight(rw), VisibleItems(r), IsItemVisible(r)
+'       TextBox (and ComboBox's edit part): SetPasswordChar, HideSelection(rw), Locked(rw), MaxLength(w), NumbersOnly(w), RTL(w), ScrollBars(w), CueBanner(rw)
+'                                           SelStart(r), SelLen(r), SelSet, SelText(rw), CurLine(r), LineStart, LineLen, GetLine, CharPoint, CharAtPoint,
+'       ComboBox: DropState(rw), CueBanner(rw) (This is a custom CueBanner, not Windows Controls CueBanner)
+'       CheckBox/RadioButton: Checked(rw)
+'       For all controls: Tag(Variant)(rw), Text(rw), Visible(rw), Enable(rw), ToolTipText(rw), ToolTipFlags(alignment of tooltiptext)(w), TextWidth(text width with control's font)(r), TextHeight(r)
+'       Left, Top, Width, Height, ClientWidth, ClientHeight, Move -> All values r/w are in pixels!
+'       MouseInWindow, AcceptFiles(w), SetMouseCursor, BackColor(rw), ForeColor(rw), BackStyle(rw), SetFocus, ZOrder, Alignment(w), BorderStyle(w), Appearance(w), SetFont, Refresh, GetWindow
 '       SetMouseCursor accepts an hCursor or enum with system cursor index. SetFont accepts VB IFont or hFont.
-'    9. Events: Standard VB events like MouseMove, KeyDown etc, In addition: MouseWheel, MouseEnter, MouseLeave, MouseHover, OwnerDraw(for owner-drawn controls), Message(all messages, including user messages)
-'       Unlike VB-events, a specific event handler is for ALL CONTROLS: Uni_Event(ControlName...). Use ControlName to handle an individual control inside the event handler
-'   10. Control-Arrays: It is possible to create arrays of Labels and refer to each element by Index: Uni.Text(txtName(i)) = asName(i). All UniForm events pass iIndex parameter (which is -1 if not an array)
-'       It is also possible to dynamically add controls to the form: Load txtName(n) and then add to UniForm: Uni.AddControl txtName(n)
-'   11. Bonus: For tooltips, there is HideToolTip and ShowToolTip to show the tooltip with arbitrary text and position
+
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 Option Explicit
@@ -88,7 +96,7 @@ Event MouseEnter(ByVal ControlName As String, ByVal iIndex As Long)
 Event MouseLeave(ByVal ControlName As String, ByVal iIndex As Long)
 Event MouseHover(ByVal ControlName As String, ByVal iIndex As Long, ByVal Button As Integer, ByVal Shift As Integer, ByVal X As Long, ByVal Y As Long)
 Event OwnerDraw(ByVal ControlName As String, ByVal iIndex As Long, ByVal hdc As Long, ByVal Item As Long, ByVal iLeft As Long, ByVal iTop As Long, ByVal iWidth As Long, ByVal iHeight As Long, ByVal Action As eCtlAction, ByVal State As eDrawState)
-Event Sort(ControlName As String, ByVal iIndex As Long, ByVal Index1 As Long, ByVal Index2 As Long, Cmp As Long, Param)
+Event Compare(ControlName As String, ByVal iIndex As Long, ByVal Item1 As Long, ByVal Item2 As Long, Cmp As Long, Param)
 Event Message(ByVal ControlName As String, ByVal iIndex As Long, ByVal uMsg As Long, ByVal wParam As Long, ByVal lParam As Long, RetValue As Long, Handled As Boolean)
 
 Private Type tControl
@@ -855,7 +863,7 @@ ReDim Preserve m_Controls(0 To m_CtlCount - 1)
 pvAddControl ctl, m_CtlCount - 1
 End Sub
 
-Sub pvAddControl(ctl As Control, ByVal ix As Long)
+Private Sub pvAddControl(ctl As Control, ByVal ix As Long)
 Dim c As Control
 Dim n As Long
 Dim p As Long
@@ -893,10 +901,10 @@ l = Container.ScaleX(c.left, sm, vbPixels)
 t = Container.ScaleY(c.top, sm, vbPixels)
 w = Container.ScaleX(c.Width, sm, vbPixels)
 h = Container.ScaleY(c.Height, sm, vbPixels)
+hPar = Container.hWnd
 nStyle = 0
 exStyle = 0
 Style2 = 0
-hPar = Container.hWnd
 If c.Visible Then nStyle = nStyle Or WS_VISIBLE
 If c.Appearance = 1 Then exStyle = exStyle Or WS_EX_CLIENTEDGE
 If c.BorderStyle = 1 And (exStyle And WS_EX_CLIENTEDGE) = 0 Then nStyle = nStyle Or WS_BORDER
@@ -2752,7 +2760,7 @@ Private Function CompareItems(ctl As Object, sName As String, ByVal iIndex As Lo
 Dim t As eSortList
 t = SortBy And 15
 If t = eSortCustom Then
-    RaiseEvent Sort(sName, iIndex, p1, p2, CompareItems, Param)
+    RaiseEvent Compare(sName, iIndex, p1, p2, CompareItems, Param)
     Exit Function
 End If
 If t = eSortByStringBinary Then
