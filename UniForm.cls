@@ -52,7 +52,7 @@ Attribute VB_Exposed = False
 '                             FindItem, ListWidth(w), ItemHeight(rw), VisibleItems(r), IsItemVisible(r)
 '       TextBox (and ComboBox's edit part): SetPasswordChar, HideSelection(rw), Locked(rw), MaxLength(w), NumbersOnly(w), RTL(w), ScrollBars(w), CueBanner(rw)
 '                                           SelStart(r), SelLen(r), SelSet, SelText(rw), CurLine(r), LineStart, LineLen, GetLine, CharPoint, CharAtPoint,
-'       ComboBox: DropState(rw), CueBanner(rw) (This is a custom CueBanner, not Windows Controls CueBanner)
+'       ComboBox: DropState(rw), DropWidth(w), CueBanner(rw) (This is a custom CueBanner, not Windows Controls CueBanner)
 '       CheckBox/RadioButton: Checked(rw)
 '       For all controls: Tag(Variant)(rw), Text(rw), Visible(rw), Enable(rw), ToolTipText(rw), ToolTipFlags(alignment of tooltiptext)(w), TextWidth(text width with control's font)(r), TextHeight(r)
 '       Left, Top, Width, Height, ClientWidth, ClientHeight, Move -> All values r/w are in pixels!
@@ -96,8 +96,9 @@ Event MouseEnter(ByVal ControlName As String, ByVal iIndex As Long)
 Event MouseLeave(ByVal ControlName As String, ByVal iIndex As Long)
 Event MouseHover(ByVal ControlName As String, ByVal iIndex As Long, ByVal Button As Integer, ByVal Shift As Integer, ByVal X As Long, ByVal Y As Long)
 Event OwnerDraw(ByVal ControlName As String, ByVal iIndex As Long, ByVal hdc As Long, ByVal Item As Long, ByVal iLeft As Long, ByVal iTop As Long, ByVal iWidth As Long, ByVal iHeight As Long, ByVal Action As eCtlAction, ByVal State As eDrawState)
+Event MeasureItem(ByVal ControlName As String, ByVal iIndex As Long, ByVal Item As Long, iWidth As Long, iHeight As Long)
 Event Compare(ControlName As String, ByVal iIndex As Long, ByVal Item1 As Long, ByVal Item2 As Long, Cmp As Long, Param)
-Event Message(ByVal ControlName As String, ByVal iIndex As Long, ByVal uMsg As Long, ByVal wParam As Long, ByVal lParam As Long, RetValue As Long, Handled As Boolean)
+Event message(ByVal ControlName As String, ByVal iIndex As Long, ByVal uMsg As Long, ByVal wParam As Long, ByVal lParam As Long, RetValue As Long, Handled As Boolean)
 
 Private Type tControl
     m_Subclass As IUnknown
@@ -127,6 +128,7 @@ Private m_CtlCount&
 Private m_hTTT&
 Private m_idTTT&
 Private m_hwndParent&
+Private mhHook As Long
 Private WM_CUEBANNER As Long
 
 Private Type RECTL
@@ -138,7 +140,7 @@ End Type
 
 Private Type Msg
     hWnd As Long
-    Message As Long
+    message As Long
     wParam As Long
     lParam As Long
     time As Long
@@ -197,7 +199,23 @@ Private Type tDRAWITEMSTRUCT
     hwndItem As Long
     hdc As Long
     rcItem As RECTL
-    ItemData As Long
+    itemData As Long
+End Type
+
+Private Type tMEASUREITEMSTRUCT
+    CtlType As Long
+    CtlID As Long
+    itemID As Long
+    itemWidth As Long
+    itemHeight As Long
+    itemData As Long
+End Type
+
+Private Type tCWPSTRUCT
+    lParam As Long
+    wParam As Long
+    message As Long
+    hWnd As Long
 End Type
 
 Private Type WNDCLASSEX
@@ -252,6 +270,9 @@ Private Declare Function CompareString& Lib "kernel32.dll" Alias "CompareStringW
 Private Declare Function DragQueryFileW Lib "Shell32.dll" (ByVal drop_handle As Long, ByVal UINT As Long, ByVal lpStr As Long, ByVal ch As Long) As Long
 Private Declare Sub DragFinish Lib "Shell32" (ByVal hDrop&)
 Private Declare Sub DragAcceptFiles Lib "Shell32" (ByVal hWnd&, ByVal fAccept&)
+Private Declare Function SetWindowsHookExW& Lib "user32" (ByVal idHook&, ByVal lpfn&, ByVal hmod&, ByVal dwThreadId&)
+Private Declare Function UnhookWindowsHookEx& Lib "user32" (ByVal hHook&)
+Private Declare Function CallNextHookEx& Lib "user32" (ByVal hHook&, ByVal ncode&, ByVal wParam&, lParam As Any)
 
 Private Declare Function GetWindowTextLength Lib "user32.dll" Alias "GetWindowTextLengthW" (ByVal hWnd As Long) As Long
 Private Declare Function GetWindowTextW Lib "user32.dll" (ByVal hWnd As Long, ByVal lpString As Long, ByVal cch As Long) As Long
@@ -384,9 +405,10 @@ Enum eSortList
     eSortAsNumbers
     eSortByItemData
     eSortCustom
-    eSortDescending = 16
+    eSortDescending = 16&
 End Enum
 
+Private Const WM_CREATE = &H1&
 Private Const WM_PAINT& = &HF&
 Private Const WM_COMMAND As Long = &H111
 Private Const WM_SETFONT As Long = &H30&
@@ -411,6 +433,7 @@ Private Const WM_MOUSELEAVE& = 675&
 Private Const WM_MOUSEHOVER& = &H2A1&
 Private Const WM_DRAWITEM& = &H2B&
 Private Const WM_SETREDRAW& = &HB&
+Private Const WM_MEASUREITEM& = &H2C&
 
 Private Const WS_VISIBLE As Long = &H10000000
 Private Const WS_VSCROLL As Long = &H200000
@@ -459,6 +482,7 @@ Enum LISTBOX_STYLES
     eLB_NOINTEGRALHEIGHT& = &H100&
     eLB_MULTICOLUMN& = &H200&
     eLB_EXTENDEDSEL& = &H800&
+    eLB_TABSTOPS& = &H80&
 End Enum
 
 Private Const LBS_NOTIFY& = &H1&
@@ -827,6 +851,8 @@ Private Const LOCALE_USER_DEFAULT& = &H400&
 Private Const SORT_DIGITSASNUMBERS& = &H8&
 Private Const NORM_IGNORECASE& = &H1&
 
+Private Const WH_CALLWNDPROC& = &H4&
+
 Sub Init(frm As Form)
 Dim n As Long
 Dim i As Long
@@ -877,6 +903,7 @@ Dim Container As Object
 Dim hPar As Long
 Dim combo As tCOMBOBOXINFO
 Dim iIndex As Long
+Dim cw As tCWPSTRUCT
 
 combo.bSize = Len(combo)
 Set c = ctl
@@ -933,7 +960,7 @@ Case "button": nStyle = nStyle Or BS_NOTIFY Or BS_MULTILINE
 Case "frame": clsName = "button": nStyle = nStyle Or BS_NOTIFY Or BS_GROUPBOX Or BS_MULTILINE
              If c.Alignment = 1 Then nStyle = nStyle Or BS_RIGHTBUTTON Or BS_RIGHT
              RaiseEvent CreateFrame(c.Name, iIndex, hPar, nStyle, exStyle)
-Case "listbox": nStyle = nStyle Or LBS_NOTIFY Or WS_VSCROLL Or LBS_HASSTRINGS Or LBS_NOINTEGRALHEIGHT
+Case "listbox": nStyle = nStyle Or LBS_NOTIFY Or WS_VSCROLL Or LBS_HASSTRINGS Or LBS_NOINTEGRALHEIGHT Or eLB_TABSTOPS
             If c.Alignment = 1 Then exStyle = exStyle Or EX_STYLES.WS_EX_RIGHT
             If c.RightToLeft Then exStyle = exStyle Or WS_EX_RTLREADING Or WS_EX_LEFTSCROLLBAR
             If InStr(1, flags, "s") Then nStyle = nStyle Or eLB_SORT
@@ -1012,6 +1039,25 @@ c.Visible = False
 c.LinkTimeout = n + 1
 End Sub
 
+Sub RemoveControl(ctl As Control)
+Dim ix As Long
+Dim i As Long
+Dim t As tControl
+If m_CtlCount <= 0 Then Exit Sub
+ix = GetIx(ctl)
+If ix < 0 Then Exit Sub
+pvUnsubclass m_Controls(ix).m_Subclass
+pvUnsubclass m_Controls(ix).m_SubclassItem
+pvUnsubclass m_Controls(ix).m_SubclassList
+For i = ix + 1 To m_CtlCount - 1
+    m_Controls(i - 1) = m_Controls(i)
+Next
+m_CtlCount = m_CtlCount - 1
+m_Controls(m_CtlCount) = t
+If m_CtlCount = 0 Then Erase m_Controls: Exit Sub
+ReDim Preserve m_Controls(0 To m_CtlCount - 1)
+End Sub
+
 Property Let NoRedraw(ctl As Object, b As Boolean)
 Dim win As Long
 win = GetWindow(ctl): If win = 0 Then Exit Property
@@ -1069,12 +1115,12 @@ Property Get Text(ctl As Object)
 Dim win As Long
 Dim s As String
 Dim l As Long
+Text = ""
 win = GetWindow(ctl): If win = 0 Then Exit Property
 l = GetWindowTextLength(win)
-If l = 0 Then Exit Property
-s = AllocStr(l)
-GetWindowTextW win, StrPtr(s), l + 1
-Text = s
+If l <= 0 Then Exit Property
+Text = AllocStr(l)
+GetWindowTextW win, StrPtr(Text), l + 1
 End Property
 
 Property Let Text(ctl As Object, s)
@@ -1083,19 +1129,28 @@ win = GetWindow(ctl): If win = 0 Then Exit Property
 SetWindowTextW win, StrPtr(s)
 End Property
 
-Sub AddItem(ctl As Object, s, Optional ByVal iPos As Long = -1, Optional ByVal nItemData As Long)
+Function AddItem(ctl As Object, s, Optional ByVal iPos As Long = -1, Optional ByVal nItemData As Long) As Long
 Dim win As Long
 Dim ix As Long
-win = GetWindow(ctl): If win = 0 Then Exit Sub
-ix = GetIx(ctl): If ix < 0 Then Exit Sub
+win = GetWindow(ctl): If win = 0 Then Exit Function
+ix = GetIx(ctl): If ix < 0 Then Exit Function
 If m_Controls(ix).sClass = "listbox" Then
-    iPos = SendMessageW(win, LB_INSERTSTRING, iPos, StrPtr(s))
+    If iPos = -1 Then
+        iPos = SendMessageW(win, LB_ADDSTRING, 0, StrPtr(s))
+    Else
+        iPos = SendMessageW(win, LB_INSERTSTRING, iPos, StrPtr(s))
+    End If
     If nItemData Then SendMessageW win, LB_SETITEMDATA, iPos, nItemData
 ElseIf m_Controls(ix).sClass = "combobox" Then
-    iPos = SendMessageW(win, CB_INSERTSTRING, iPos, StrPtr(s))
+    If iPos = -1 Then
+        iPos = SendMessageW(win, CB_ADDSTRING, 0, StrPtr(s))
+    Else
+        iPos = SendMessageW(win, CB_INSERTSTRING, iPos, StrPtr(s))
+    End If
     If nItemData Then SendMessageW win, CB_SETITEMDATA, iPos, nItemData
 End If
-End Sub
+AddItem = iPos
+End Function
 
 Sub RemoveItem(ctl As Object, ByVal iPos As Long)
 Dim win As Long
@@ -1109,19 +1164,19 @@ ElseIf m_Controls(ix).sClass = "combobox" Then
 End If
 End Sub
 
-Property Get ItemData(ctl As Object, ByVal n As Long) As Long
+Property Get itemData(ctl As Object, ByVal n As Long) As Long
 Dim win As Long
 Dim ix As Long
 win = GetWindow(ctl): If win = 0 Then Exit Property
 ix = GetIx(ctl): If ix < 0 Then Exit Property
 If m_Controls(ix).sClass = "listbox" Then
-    ItemData = SendMessageW(win, LB_GETITEMDATA, n, 0)
+    itemData = SendMessageW(win, LB_GETITEMDATA, n, 0)
 ElseIf m_Controls(ix).sClass = "combobox" Then
-    ItemData = SendMessageW(win, CB_GETITEMDATA, n, 0)
+    itemData = SendMessageW(win, CB_GETITEMDATA, n, 0)
 End If
 End Property
 
-Property Let ItemData(ctl As Object, ByVal n As Long, ByVal nData As Long)
+Property Let itemData(ctl As Object, ByVal n As Long, ByVal nData As Long)
 Dim win As Long
 Dim ix As Long
 win = GetWindow(ctl): If win = 0 Then Exit Property
@@ -1262,7 +1317,7 @@ ElseIf m_Controls(ix).sClass = "combobox" Then
 End If
 End Property
 
-Property Let ItemHeight(ctl As Object, ByVal n As Long)
+Property Let itemHeight(ctl As Object, ByVal n As Long)
 Dim win As Long
 Dim ix As Long
 win = GetWindow(ctl): If win = 0 Then Exit Property
@@ -1274,15 +1329,15 @@ ElseIf m_Controls(ix).sClass = "combobox" Then
 End If
 End Property
 
-Property Get ItemHeight(ctl As Object) As Long
+Property Get itemHeight(ctl As Object) As Long
 Dim win As Long
 Dim ix As Long
 win = GetWindow(ctl): If win = 0 Then Exit Property
 ix = GetIx(ctl): If ix < 0 Then Exit Property
 If m_Controls(ix).sClass = "listbox" Then
-   ItemHeight = SendMessageW(win, LB_GETITEMHEIGHT, 0, 0)
+   itemHeight = SendMessageW(win, LB_GETITEMHEIGHT, 0, 0)
 ElseIf m_Controls(ix).sClass = "combobox" Then
-    ItemHeight = SendMessageW(win, CB_GETITEMHEIGHT, 0, 0)
+    itemHeight = SendMessageW(win, CB_GETITEMHEIGHT, 0, 0)
 End If
 End Property
 
@@ -1345,7 +1400,7 @@ MouseInWindow = PtInRect(VarPtr(rc), pt(0), pt(1)) <> 0
 End Function
 
 Public Property Get VisibleItems(ctl As Object) As Long
-VisibleItems = ClientHeight(ctl) \ ItemHeight(ctl)
+VisibleItems = ClientHeight(ctl) \ itemHeight(ctl)
 End Property
 
 Property Get IsItemVisible(ctl As Object, ByVal n As Long) As Boolean
@@ -1372,7 +1427,7 @@ ScreenToClient win, VarPtr(ar(0))
 GetClientRect win, rc
 If ar(0) < 0 Or ar(1) < 0 Then Exit Property
 If ar(0) > rc.right Or ar(1) > rc.bottom Then Exit Property
-n = TopIndex(ctl) + ar(1) \ ItemHeight(ctl)
+n = TopIndex(ctl) + ar(1) \ itemHeight(ctl)
 If n >= 0 And n < ListCount(ctl) Then MouseRow = n
 End Property
 
@@ -2197,7 +2252,7 @@ sName = m_Controls(id).sName
 iIndex = m_Controls(id).iIndex
 clas = m_Controls(id).sClass
 
-RaiseEvent Message(sName, iIndex, wMsg, wParam, lParam, r, Handled)
+RaiseEvent message(sName, iIndex, wMsg, wParam, lParam, r, Handled)
 If Handled Then SubclassProc = r: Exit Function
 
 Select Case wMsg
@@ -2336,13 +2391,14 @@ Dim iIndex As Long
 Dim tme As tTRACKMOUSEEVENT
 Dim ar(0 To 4) As Long
 Dim di As tDRAWITEMSTRUCT
+Dim mi As tMEASUREITEMSTRUCT
 Dim l&, t&, w&, h&
 Dim r&
 Dim rc As RECTL
 Dim dc As Long
 Dim iMsg As Msg
 
-RaiseEvent Message("", -1&, wMsg, wParam, lParam, r, Handled)
+RaiseEvent message("", -1&, wMsg, wParam, lParam, r, Handled)
 If Handled Then SubclassFormProc = r: Exit Function
 
 If wMsg = WM_COMMAND Then
@@ -2374,6 +2430,15 @@ Case WM_DRAWITEM:
     l = di.rcItem.left: t = di.rcItem.top: w = di.rcItem.right - l: h = di.rcItem.bottom - t
     RaiseEvent OwnerDraw(m_Controls(id).sName, m_Controls(id).iIndex, di.hdc, di.itemID, l, t, w, h, di.itemAction, di.itemState)
     Handled = True
+    SubclassFormProc = 1
+Case WM_MEASUREITEM:
+    id = wParam - 1
+    If id < 0 Or id >= m_CtlCount Then Exit Function
+    CopyMemory VarPtr(mi), lParam, Len(mi)
+    RaiseEvent MeasureItem(m_Controls(id).sName, m_Controls(id).iIndex, mi.itemID, w, h)
+    mi.itemWidth = w
+    mi.itemHeight = h
+    CopyMemory lParam, VarPtr(mi), Len(mi)
     SubclassFormProc = 1
 Case WM_COMMAND:
     CopyMemory VarPtr(id), VarPtr(wParam), 2
@@ -2804,7 +2869,7 @@ ReDim sList(0 To cnt - 1)
 ReDim aData(0 To cnt - 1)
 For i = 0 To cnt - 1
     sList(i) = List(ctl, i)
-    aData(i) = ItemData(ctl, i)
+    aData(i) = itemData(ctl, i)
 Next
 ReDim aList1(0 To cnt - 1)
 ReDim aList2(0 To cnt - 1)
@@ -2893,7 +2958,7 @@ high = cnt - 1
 
 Do While low <= high
     med = (low + high) \ 2
-    c = CompareItems(ctl, sName, iIndex, SortBy, med, -1, List(ctl, med), s, ItemData(ctl, med), nItemData, Param)
+    c = CompareItems(ctl, sName, iIndex, SortBy, med, -1, List(ctl, med), s, itemData(ctl, med), nItemData, Param)
     If c = 0 Then GetSortedIndexOfNewItemAssumingListIsSorted = med: Exit Function
     If c < 0 Then low = med + 1 Else high = med - 1
 Loop
