@@ -28,7 +28,8 @@ Attribute VB_Exposed = False
 '    5. In Form Code, add a class object member: Public WithEvents Uni As UniForm
 '    6. At Form_Load: Set Uni = New UniForm: Uni.Init Me ' <- This will create the controls and hide the labels
 '    7. The class name can contain some special style flags after a hyphen. e.g. For multiline and locked Edit control: Edit-lm
-'       The following flags are supported: Edit:lmn = l(locked)/m(multiline)/n(number only)
+'       The following flags are supported:
+'           Edit:lmn = l(locked)/m(multiline)/n(number only)
 '           Button/Checkbox/Radiobutton/3State:og = o(owner-draw)/g(graphical-pushlike)
 '           Listbox:smceov = s(sorted)/m(multiselection)/c(multicolumn)/e(extended selection)/o(owner-draw)/v(owner-draw-variable)
 '           ComboBox:scdpaov = s(sorted)/c(combo+edit)/d(droplist)/p(simple-no-drop)/a(auto-hscroll)/o(owner-draw)/v(owner-draw-variable)
@@ -47,46 +48,48 @@ Attribute VB_Exposed = False
 '       SetMouseCursor accepts an hCursor or enum with system cursor index. SetFont accepts VB IFont or hFont.
 '    9. Events: Standard VB events like MouseMove, KeyDown etc, In addition: MouseWheel, MouseEnter, MouseLeave, MouseHover, OwnerDraw(for owner-drawn controls), Message(all messages, including user messages)
 '       Unlike VB-events, a specific event handler is for ALL CONTROLS: Uni_Event(ControlName...). Use ControlName to handle an individual control inside the event handler
-'   10. Bonus: For tooltips, there is HideToolTip and ShowToolTip to show the tooltip with arbitrary text and position
+'   10. Control-Arrays: It is possible to create arrays of Labels and refer to each element by Index: Uni.Text(txtName(i)) = asName(i). All UniForm events pass iIndex parameter (which is -1 if not an array)
+'       It is also possible to dynamically add controls to the form: Load txtName(n) and then add to UniForm: Uni.AddControl txtName(n)
+'   11. Bonus: For tooltips, there is HideToolTip and ShowToolTip to show the tooltip with arbitrary text and position
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 Option Explicit
 
-Event Create(ByVal ControlName As String, hwndParent As Long, ControlClass As String, Style As Long, exStyle As EX_STYLES)
-Event CreateListBox(ByVal ControlName As String, hwndParent As Long, Style As LISTBOX_STYLES, exStyle As EX_STYLES)
-Event CreateComboBox(ByVal ControlName As String, hwndParent As Long, Style As COMBO_STYLES, exStyle As EX_STYLES)
-Event CreateStatic(ByVal ControlName As String, hwndParent As Long, StaticType As STATIC_TYPE, StaticFlags As STATIC_FLAGS, exStyle As EX_STYLES)
-Event CreateButton(ByVal ControlName As String, hwndParent As Long, Style As BUTTON_STYLES, exStyle As EX_STYLES)
-Event CreateCheckBox(ByVal ControlName As String, hwndParent As Long, Style As BUTTON_STYLES, exStyle As EX_STYLES)
-Event CreateRadioButton(ByVal ControlName As String, hwndParent As Long, Style As BUTTON_STYLES, exStyle As EX_STYLES)
-Event Create3State(ByVal ControlName As String, hwndParent As Long, Style As BUTTON_STYLES, exStyle As EX_STYLES)
-Event CreateFrame(ByVal ControlName As String, hwndParent As Long, Style As BUTTON_STYLES, exStyle As EX_STYLES)
-Event CreateEdit(ByVal ControlName As String, hwndParent As Long, Style As EDIT_STYLES, exStyle As EX_STYLES)
-Event GotFocus(ByVal ControlName As String)
-Event LostFocus(ByVal ControlName As String)
-Event Change(ByVal ControlName As String)
-Event Scroll(ByVal ControlName As String)
-Event BeforePaste(ByVal ControlName As String)
-Event AfterPaste(ByVal ControlName As String)
-Event Click(ByVal ControlName As String)
-Event DblClick(ByVal ControlName As String)
-Event SelChange(ByVal ControlName As String)
-Event DropDown(ByVal ControlName As String)
-Event DropClose(ByVal ControlName As String)
-Event KeyDown(ByVal ControlName As String, KeyCode As Integer, Shift As Integer)
-Event KeyUp(ByVal ControlName As String, KeyCode As Integer, Shift As Integer)
-Event KeyPress(ByVal ControlName As String, WChar As Integer)
-Event MouseDown(ByVal ControlName As String, ByVal Button As Integer, ByVal Shift As Integer, ByVal X As Long, ByVal Y As Long)
-Event MouseUp(ByVal ControlName As String, ByVal Button As Integer, ByVal Shift As Integer, ByVal X As Long, ByVal Y As Long)
-Event MouseMove(ByVal ControlName As String, ByVal Button As Integer, ByVal Shift As Integer, ByVal X As Long, ByVal Y As Long)
-Event MouseWheel(ByVal ControlName As String, ByVal Delta As Integer, ByVal Shift As Integer, ByVal X As Long, ByVal Y As Long)
-Event DropFiles(ByVal ControlName As String, oFiles As Collection)
-Event MouseEnter(ByVal ControlName As String)
-Event MouseLeave(ByVal ControlName As String)
-Event MouseHover(ByVal ControlName As String, ByVal Button As Integer, ByVal Shift As Integer, ByVal X As Long, ByVal Y As Long)
-Event OwnerDraw(ByVal ControlName As String, ByVal hdc As Long, ByVal Item As Long, ByVal iLeft As Long, ByVal iTop As Long, ByVal iWidth As Long, ByVal iHeight As Long, ByVal Action As eCtlAction, ByVal State As eDrawState)
-Event Sort(ControlName As String, ByVal Index1 As Long, ByVal Index2 As Long, Cmp As Long, ByVal Param As Long)
-Event message(ByVal ControlName As String, ByVal uMsg As Long, ByVal wParam As Long, ByVal lParam As Long, RetValue As Long, Handled As Boolean)
+Event Create(ByVal ControlName As String, ByVal iIndex As Long, hwndParent As Long, ControlClass As String, Style As Long, exStyle As EX_STYLES)
+Event CreateListBox(ByVal ControlName As String, ByVal iIndex As Long, hwndParent As Long, Style As LISTBOX_STYLES, exStyle As EX_STYLES)
+Event CreateComboBox(ByVal ControlName As String, ByVal iIndex As Long, hwndParent As Long, Style As COMBO_STYLES, exStyle As EX_STYLES)
+Event CreateStatic(ByVal ControlName As String, ByVal iIndex As Long, hwndParent As Long, StaticType As STATIC_TYPE, StaticFlags As STATIC_FLAGS, exStyle As EX_STYLES)
+Event CreateButton(ByVal ControlName As String, ByVal iIndex As Long, hwndParent As Long, Style As BUTTON_STYLES, exStyle As EX_STYLES)
+Event CreateCheckBox(ByVal ControlName As String, ByVal iIndex As Long, hwndParent As Long, Style As BUTTON_STYLES, exStyle As EX_STYLES)
+Event CreateRadioButton(ByVal ControlName As String, ByVal iIndex As Long, hwndParent As Long, Style As BUTTON_STYLES, exStyle As EX_STYLES)
+Event Create3State(ByVal ControlName As String, ByVal iIndex As Long, hwndParent As Long, Style As BUTTON_STYLES, exStyle As EX_STYLES)
+Event CreateFrame(ByVal ControlName As String, ByVal iIndex As Long, hwndParent As Long, Style As BUTTON_STYLES, exStyle As EX_STYLES)
+Event CreateEdit(ByVal ControlName As String, ByVal iIndex As Long, hwndParent As Long, Style As EDIT_STYLES, exStyle As EX_STYLES)
+Event GotFocus(ByVal ControlName As String, ByVal iIndex As Long)
+Event LostFocus(ByVal ControlName As String, ByVal iIndex As Long)
+Event Change(ByVal ControlName As String, ByVal iIndex As Long)
+Event Scroll(ByVal ControlName As String, ByVal iIndex As Long)
+Event BeforePaste(ByVal ControlName As String, ByVal iIndex As Long)
+Event AfterPaste(ByVal ControlName As String, ByVal iIndex As Long)
+Event Click(ByVal ControlName As String, ByVal iIndex As Long)
+Event DblClick(ByVal ControlName As String, ByVal iIndex As Long)
+Event SelChange(ByVal ControlName As String, ByVal iIndex As Long)
+Event DropDown(ByVal ControlName As String, ByVal iIndex As Long)
+Event DropClose(ByVal ControlName As String, ByVal iIndex As Long)
+Event KeyDown(ByVal ControlName As String, ByVal iIndex As Long, KeyCode As Integer, Shift As Integer)
+Event KeyUp(ByVal ControlName As String, ByVal iIndex As Long, KeyCode As Integer, Shift As Integer)
+Event KeyPress(ByVal ControlName As String, ByVal iIndex As Long, WChar As Integer)
+Event MouseDown(ByVal ControlName As String, ByVal iIndex As Long, ByVal Button As Integer, ByVal Shift As Integer, ByVal X As Long, ByVal Y As Long)
+Event MouseUp(ByVal ControlName As String, ByVal iIndex As Long, ByVal Button As Integer, ByVal Shift As Integer, ByVal X As Long, ByVal Y As Long)
+Event MouseMove(ByVal ControlName As String, ByVal iIndex As Long, ByVal Button As Integer, ByVal Shift As Integer, ByVal X As Long, ByVal Y As Long)
+Event MouseWheel(ByVal ControlName As String, ByVal iIndex As Long, ByVal Delta As Integer, ByVal Shift As Integer, ByVal X As Long, ByVal Y As Long)
+Event DropFiles(ByVal ControlName As String, ByVal iIndex As Long, oFiles As Collection)
+Event MouseEnter(ByVal ControlName As String, ByVal iIndex As Long)
+Event MouseLeave(ByVal ControlName As String, ByVal iIndex As Long)
+Event MouseHover(ByVal ControlName As String, ByVal iIndex As Long, ByVal Button As Integer, ByVal Shift As Integer, ByVal X As Long, ByVal Y As Long)
+Event OwnerDraw(ByVal ControlName As String, ByVal iIndex As Long, ByVal hdc As Long, ByVal Item As Long, ByVal iLeft As Long, ByVal iTop As Long, ByVal iWidth As Long, ByVal iHeight As Long, ByVal Action As eCtlAction, ByVal State As eDrawState)
+Event Sort(ControlName As String, ByVal iIndex As Long, ByVal Index1 As Long, ByVal Index2 As Long, Cmp As Long, Param)
+Event Message(ByVal ControlName As String, ByVal iIndex As Long, ByVal uMsg As Long, ByVal wParam As Long, ByVal lParam As Long, RetValue As Long, Handled As Boolean)
 
 Private Type tControl
     m_Subclass As IUnknown
@@ -97,6 +100,7 @@ Private Type tControl
     hList As Long
     sName As String
     sClass As String
+    iIndex As Long
     BackColor As Long
     ForeColor As Long
     BackStyle As Long
@@ -126,7 +130,7 @@ End Type
 
 Private Type Msg
     hWnd As Long
-    message As Long
+    Message As Long
     wParam As Long
     lParam As Long
     time As Long
@@ -817,21 +821,12 @@ Private Const NORM_IGNORECASE& = &H1&
 
 Sub Init(frm As Form)
 Dim n As Long
-Dim i As Long, p As Long
+Dim i As Long
 Dim c
-Dim win As Long
-Dim clsName As String, s As String
-Dim l&, t&, w&, h&, nStyle&, exStyle&, Style2&
-Dim flags As String
-Dim fnt As IFont
-Dim sm As Long
-Dim Container As Object
-Dim hPar As Long
-Dim combo As tCOMBOBOXINFO
+Dim clsName As String
 Dim actl() As Object
 Dim cnt As Long
 
-combo.bSize = Len(combo)
 m_hwndParent = frm.hWnd
 cnt = frm.Controls.Count
 ReDim actl(0 To cnt)
@@ -848,138 +843,168 @@ ReDim m_Controls(0 To n - 1)
 n = 0
 For i = 0 To cnt
     If ObjPtr(actl(i)) Then
-        Set c = actl(i)
-        clsName = LCase(c.LinkItem)
-        flags = ""
-        p = InStr(1, clsName, "-")
-        If p > 0 Then flags = Mid(clsName, p + 1): clsName = VBA.left(clsName, p - 1)
-        s = c.Caption
-        sm = -1
-        Set Container = c.Container
-        Do
-            On Error Resume Next
-            sm = Container.ScaleMode
-            If sm <> -1 Then Exit Do
-            Set Container = Container.Container
-        Loop
-        l = Container.ScaleX(c.left, sm, vbPixels)
-        t = Container.ScaleY(c.top, sm, vbPixels)
-        w = Container.ScaleX(c.Width, sm, vbPixels)
-        h = Container.ScaleY(c.Height, sm, vbPixels)
-        nStyle = 0
-        exStyle = 0
-        Style2 = 0
-        hPar = Container.hWnd
-        If c.Visible Then nStyle = nStyle Or WS_VISIBLE
-        If c.Appearance = 1 Then exStyle = exStyle Or WS_EX_CLIENTEDGE
-        If c.BorderStyle = 1 And (exStyle And WS_EX_CLIENTEDGE) = 0 Then nStyle = nStyle Or WS_BORDER
-        If c.RightToLeft Then exStyle = exStyle Or WS_EX_RTLREADING
-        nStyle = nStyle Or WS_TABSTOP
-        Select Case clsName
-        Case "static": nStyle = nStyle Or SS_NOTIFY
-                       If c.Alignment = 1 Then nStyle = nStyle Or SS_RIGHT
-                       If c.Alignment = 2 Then nStyle = nStyle Or SS_CENTER
-                       If InStr(1, flags, "i") Then nStyle = nStyle Or eSS_ICON
-                       If InStr(1, flags, "b") Then nStyle = nStyle Or eSS_BITMAP
-                       If InStr(1, flags, "o") Then nStyle = nStyle Or eSS_OWNERDRAW
-                       RaiseEvent CreateStatic(c.Name, hPar, Style2, nStyle, exStyle)
-                       nStyle = nStyle Or Style2
-        Case "edit": If c.Alignment = 1 Then nStyle = nStyle Or ES_RIGHT: exStyle = exStyle Or WS_EX_RIGHT
-                     If c.Alignment = 2 Then nStyle = nStyle Or ES_CENTER
-                     If c.RightToLeft Then exStyle = exStyle Or WS_EX_RTLREADING Or WS_EX_LEFTSCROLLBAR
-                     nStyle = nStyle Or ES_AUTOHSCROLL Or ES_AUTOVSCROLL Or ES_WANTRETURN
-                     If InStr(1, flags, "l") Then nStyle = nStyle Or eEDIT_LOCKED
-                     If InStr(1, flags, "m") Then nStyle = nStyle Or eEDIT_MULTILINE
-                     If InStr(1, flags, "n") Then nStyle = nStyle Or eEDIT_NUMBER
-                     RaiseEvent CreateEdit(c.Name, hPar, nStyle, exStyle)
-        Case "button": nStyle = nStyle Or BS_NOTIFY Or BS_MULTILINE
-                     If InStr(1, flags, "o") Then nStyle = nStyle Or BS_OWNERDRAW
-                     RaiseEvent CreateButton(c.Name, hPar, nStyle, exStyle)
-        Case "frame": clsName = "button": nStyle = nStyle Or BS_NOTIFY Or BS_GROUPBOX Or BS_MULTILINE
-                     If c.Alignment = 1 Then nStyle = nStyle Or BS_RIGHTBUTTON Or BS_RIGHT
-                     RaiseEvent CreateFrame(c.Name, hPar, nStyle, exStyle)
-        Case "listbox": nStyle = nStyle Or LBS_NOTIFY Or WS_VSCROLL Or LBS_HASSTRINGS Or LBS_NOINTEGRALHEIGHT
-                    If c.Alignment = 1 Then exStyle = exStyle Or EX_STYLES.WS_EX_RIGHT
-                    If c.RightToLeft Then exStyle = exStyle Or WS_EX_RTLREADING Or WS_EX_LEFTSCROLLBAR
-                    If InStr(1, flags, "s") Then nStyle = nStyle Or eLB_SORT
-                    If InStr(1, flags, "m") Then nStyle = nStyle Or eLB_MULTIPLESEL
-                    If InStr(1, flags, "c") Then nStyle = nStyle Or eLB_MULTICOLUMN
-                    If InStr(1, flags, "e") Then nStyle = nStyle Or eLB_EXTENDEDSEL
-                    If InStr(1, flags, "o") Then nStyle = nStyle Or eLB_OWNERDRAWFIXED
-                    If InStr(1, flags, "v") Then nStyle = nStyle Or eLB_OWNERDRAWVARIABLE
-                    RaiseEvent CreateListBox(c.Name, hPar, nStyle, exStyle)
-        Case "combobox": nStyle = nStyle Or WS_VSCROLL Or CBS_HASSTRINGS Or CBS_NOINTEGRALHEIGHT
-                    If c.Alignment = 1 Then exStyle = exStyle Or EX_STYLES.WS_EX_RIGHT
-                    If c.RightToLeft Then exStyle = exStyle Or WS_EX_RTLREADING Or WS_EX_LEFTSCROLLBAR
-                    If InStr(1, flags, "s") Then nStyle = nStyle Or eCB_SORT
-                    If InStr(1, flags, "o") Then nStyle = nStyle Or eCB_OWNERDRAWFIXED
-                    If InStr(1, flags, "v") Then nStyle = nStyle Or eCB_OWNERDRAWVARIABLE
-                    If InStr(1, flags, "a") Then nStyle = nStyle Or eCB_AUTOHSCROLL
-                    If InStr(1, flags, "c") Then nStyle = nStyle Or eCB_DROPEDIT
-                    If InStr(1, flags, "d") Then nStyle = nStyle Or eCB_DROPSTATIC
-                    If InStr(1, flags, "p") Then nStyle = nStyle Or eCB_SIMPLE
-                    RaiseEvent CreateComboBox(c.Name, hPar, nStyle, exStyle)
-                    If (nStyle And 3) = 0 Then nStyle = nStyle Or CBS_DROPDOWN
-        Case "checkbox": clsName = "button": nStyle = nStyle Or BS_AUTOCHECKBOX Or BS_MULTILINE Or BS_NOTIFY
-                    If c.Alignment = 1 Then nStyle = nStyle Or BS_RIGHTBUTTON Or BS_RIGHT
-                    If InStr(1, flags, "g") Then nStyle = nStyle Or eBUTTON_GRAPHICAL
-                    If InStr(1, flags, "o") Then nStyle = nStyle Or BS_OWNERDRAW
-                    RaiseEvent CreateCheckBox(c.Name, hPar, nStyle, exStyle)
-        Case "3state": clsName = "button": nStyle = nStyle Or BS_AUTO3STATE Or BS_MULTILINE Or BS_NOTIFY
-                    If c.Alignment = 1 Then nStyle = nStyle Or BS_RIGHTBUTTON Or BS_RIGHT
-                    If InStr(1, flags, "g") Then nStyle = nStyle Or eBUTTON_GRAPHICAL
-                    If InStr(1, flags, "o") Then nStyle = nStyle Or BS_OWNERDRAW
-                    RaiseEvent Create3State(c.Name, hPar, nStyle, exStyle)
-        Case "radiobutton": clsName = "button": nStyle = nStyle Or BS_AUTORADIOBUTTON Or BS_MULTILINE Or BS_NOTIFY
-                    If c.Alignment = 1 Then nStyle = nStyle Or BS_RIGHTBUTTON Or BS_RIGHT
-                    If InStr(1, flags, "g") Then nStyle = nStyle Or eBUTTON_GRAPHICAL
-                    If InStr(1, flags, "o") Then nStyle = nStyle Or BS_OWNERDRAW
-                    RaiseEvent CreateRadioButton(c.Name, hPar, nStyle, exStyle)
-        Case "radiobuttongroup": clsName = "button": nStyle = nStyle Or BS_AUTORADIOBUTTON Or WS_GROUP Or BS_MULTILINE Or BS_NOTIFY
-                    If c.Alignment = 1 Then nStyle = nStyle Or BS_RIGHTBUTTON Or BS_RIGHT
-                    If InStr(1, flags, "g") Then nStyle = nStyle Or eBUTTON_GRAPHICAL
-                    If InStr(1, flags, "o") Then nStyle = nStyle Or BS_OWNERDRAW
-                    RaiseEvent CreateRadioButton(c.Name, hPar, nStyle, exStyle)
-        Case Else:
-            RaiseEvent Create(c.Name, hPar, clsName, nStyle, exStyle)
-        End Select
-        nStyle = nStyle Or WS_CHILD
-        win = CreateWindowExW(exStyle, StrPtr(clsName), StrPtr(s), nStyle, l, t, w, h, hPar, n + 1, App.hInstance, 0)
-        If clsName = "combobox" Then
-            GetComboBoxInfo win, VarPtr(combo)
-            m_Controls(n).hList = combo.hwndList
-            m_Controls(n).hEdit = combo.hwndItem
-            If combo.hwndList Then
-                SetWindowLongW combo.hwndList, -12&, n + 1
-                'SetProp combo.hwndList, "_ID_", n + 1
-                'pvSubclassItem m_Controls(n).m_SubclassList, combo.hwndList
-            End If
-            If combo.hwndItem Then
-                SetWindowLongW combo.hwndItem, -12&, n + 1
-                'SetProp combo.hwndItem, "_ID_", n + 1
-                pvSubclassItem m_Controls(n).m_SubclassList, combo.hwndItem
-            End If
-        End If
-        Set fnt = c.Font
-        SendMessageW win, WM_SETFONT, fnt.hFont, 1
-        m_Controls(n).hWnd = win
-        m_Controls(n).sName = c.Name
-        m_Controls(n).sClass = clsName
-        m_Controls(n).BackColor = FixColor(c.BackColor)
-        m_Controls(n).ForeColor = FixColor(c.ForeColor)
-        m_Controls(n).BackStyle = c.BackStyle + 1
-        m_Controls(n).hCursor = -1
-        m_Controls(n).ToolTipText = c.ToolTipText
-        If Len(c.Tag) Then m_Controls(n).Tag = c.Tag
-        pvSubclass2 m_Controls(n).m_Subclass, win
-        c.Visible = False
-        c.LinkTimeout = n + 1
+        pvAddControl actl(i), n
         n = n + 1
     End If
 Next
 End Sub
 
-Property Let NoDraw(ctl As Object, b As Boolean)
+Sub AddControl(ctl As Control)
+m_CtlCount = m_CtlCount + 1
+ReDim Preserve m_Controls(0 To m_CtlCount - 1)
+pvAddControl ctl, m_CtlCount - 1
+End Sub
+
+Sub pvAddControl(ctl As Control, ByVal ix As Long)
+Dim c As Control
+Dim n As Long
+Dim p As Long
+Dim win As Long
+Dim clsName As String, s As String
+Dim l&, t&, w&, h&, nStyle&, exStyle&, Style2&
+Dim flags As String
+Dim fnt As IFont
+Dim sm As Long
+Dim Container As Object
+Dim hPar As Long
+Dim combo As tCOMBOBOXINFO
+Dim iIndex As Long
+
+combo.bSize = Len(combo)
+Set c = ctl
+n = ix
+clsName = LCase(c.LinkItem)
+flags = ""
+p = InStr(1, clsName, "-")
+If p > 0 Then flags = Mid(clsName, p + 1): clsName = VBA.left(clsName, p - 1)
+s = c.Caption
+iIndex = -1
+On Error Resume Next
+iIndex = c.Index
+sm = -1
+Set Container = c.Container
+Do
+    On Error Resume Next
+    sm = Container.ScaleMode
+    If sm <> -1 Then Exit Do
+    Set Container = Container.Container
+Loop
+l = Container.ScaleX(c.left, sm, vbPixels)
+t = Container.ScaleY(c.top, sm, vbPixels)
+w = Container.ScaleX(c.Width, sm, vbPixels)
+h = Container.ScaleY(c.Height, sm, vbPixels)
+nStyle = 0
+exStyle = 0
+Style2 = 0
+hPar = Container.hWnd
+If c.Visible Then nStyle = nStyle Or WS_VISIBLE
+If c.Appearance = 1 Then exStyle = exStyle Or WS_EX_CLIENTEDGE
+If c.BorderStyle = 1 And (exStyle And WS_EX_CLIENTEDGE) = 0 Then nStyle = nStyle Or WS_BORDER
+If c.RightToLeft Then exStyle = exStyle Or WS_EX_RTLREADING
+nStyle = nStyle Or WS_TABSTOP
+Select Case clsName
+Case "static": nStyle = nStyle Or SS_NOTIFY
+               If c.Alignment = 1 Then nStyle = nStyle Or SS_RIGHT
+               If c.Alignment = 2 Then nStyle = nStyle Or SS_CENTER
+               If InStr(1, flags, "i") Then nStyle = nStyle Or eSS_ICON
+               If InStr(1, flags, "b") Then nStyle = nStyle Or eSS_BITMAP
+               If InStr(1, flags, "o") Then nStyle = nStyle Or eSS_OWNERDRAW
+               RaiseEvent CreateStatic(c.Name, iIndex, hPar, Style2, nStyle, exStyle)
+               nStyle = nStyle Or Style2
+Case "edit": If c.Alignment = 1 Then nStyle = nStyle Or ES_RIGHT: exStyle = exStyle Or WS_EX_RIGHT
+             If c.Alignment = 2 Then nStyle = nStyle Or ES_CENTER
+             If c.RightToLeft Then exStyle = exStyle Or WS_EX_RTLREADING Or WS_EX_LEFTSCROLLBAR
+             nStyle = nStyle Or ES_AUTOHSCROLL Or ES_AUTOVSCROLL Or ES_WANTRETURN
+             If InStr(1, flags, "l") Then nStyle = nStyle Or eEDIT_LOCKED
+             If InStr(1, flags, "m") Then nStyle = nStyle Or eEDIT_MULTILINE
+             If InStr(1, flags, "n") Then nStyle = nStyle Or eEDIT_NUMBER
+             RaiseEvent CreateEdit(c.Name, iIndex, hPar, nStyle, exStyle)
+Case "button": nStyle = nStyle Or BS_NOTIFY Or BS_MULTILINE
+             If InStr(1, flags, "o") Then nStyle = nStyle Or BS_OWNERDRAW
+             RaiseEvent CreateButton(c.Name, iIndex, hPar, nStyle, exStyle)
+Case "frame": clsName = "button": nStyle = nStyle Or BS_NOTIFY Or BS_GROUPBOX Or BS_MULTILINE
+             If c.Alignment = 1 Then nStyle = nStyle Or BS_RIGHTBUTTON Or BS_RIGHT
+             RaiseEvent CreateFrame(c.Name, iIndex, hPar, nStyle, exStyle)
+Case "listbox": nStyle = nStyle Or LBS_NOTIFY Or WS_VSCROLL Or LBS_HASSTRINGS Or LBS_NOINTEGRALHEIGHT
+            If c.Alignment = 1 Then exStyle = exStyle Or EX_STYLES.WS_EX_RIGHT
+            If c.RightToLeft Then exStyle = exStyle Or WS_EX_RTLREADING Or WS_EX_LEFTSCROLLBAR
+            If InStr(1, flags, "s") Then nStyle = nStyle Or eLB_SORT
+            If InStr(1, flags, "m") Then nStyle = nStyle Or eLB_MULTIPLESEL
+            If InStr(1, flags, "c") Then nStyle = nStyle Or eLB_MULTICOLUMN
+            If InStr(1, flags, "e") Then nStyle = nStyle Or eLB_EXTENDEDSEL
+            If InStr(1, flags, "o") Then nStyle = nStyle Or eLB_OWNERDRAWFIXED
+            If InStr(1, flags, "v") Then nStyle = nStyle Or eLB_OWNERDRAWVARIABLE
+            RaiseEvent CreateListBox(c.Name, iIndex, hPar, nStyle, exStyle)
+Case "combobox": nStyle = nStyle Or WS_VSCROLL Or CBS_HASSTRINGS Or CBS_NOINTEGRALHEIGHT
+            If c.Alignment = 1 Then exStyle = exStyle Or EX_STYLES.WS_EX_RIGHT
+            If c.RightToLeft Then exStyle = exStyle Or WS_EX_RTLREADING Or WS_EX_LEFTSCROLLBAR
+            If InStr(1, flags, "s") Then nStyle = nStyle Or eCB_SORT
+            If InStr(1, flags, "o") Then nStyle = nStyle Or eCB_OWNERDRAWFIXED
+            If InStr(1, flags, "v") Then nStyle = nStyle Or eCB_OWNERDRAWVARIABLE
+            If InStr(1, flags, "a") Then nStyle = nStyle Or eCB_AUTOHSCROLL
+            If InStr(1, flags, "c") Then nStyle = nStyle Or eCB_DROPEDIT
+            If InStr(1, flags, "d") Then nStyle = nStyle Or eCB_DROPSTATIC
+            If InStr(1, flags, "p") Then nStyle = nStyle Or eCB_SIMPLE
+            RaiseEvent CreateComboBox(c.Name, iIndex, hPar, nStyle, exStyle)
+            If (nStyle And 3) = 0 Then nStyle = nStyle Or CBS_DROPDOWN
+Case "checkbox": clsName = "button": nStyle = nStyle Or BS_AUTOCHECKBOX Or BS_MULTILINE Or BS_NOTIFY
+            If c.Alignment = 1 Then nStyle = nStyle Or BS_RIGHTBUTTON Or BS_RIGHT
+            If InStr(1, flags, "g") Then nStyle = nStyle Or eBUTTON_GRAPHICAL
+            If InStr(1, flags, "o") Then nStyle = nStyle Or BS_OWNERDRAW
+            RaiseEvent CreateCheckBox(c.Name, iIndex, hPar, nStyle, exStyle)
+Case "3state": clsName = "button": nStyle = nStyle Or BS_AUTO3STATE Or BS_MULTILINE Or BS_NOTIFY
+            If c.Alignment = 1 Then nStyle = nStyle Or BS_RIGHTBUTTON Or BS_RIGHT
+            If InStr(1, flags, "g") Then nStyle = nStyle Or eBUTTON_GRAPHICAL
+            If InStr(1, flags, "o") Then nStyle = nStyle Or BS_OWNERDRAW
+            RaiseEvent Create3State(c.Name, iIndex, hPar, nStyle, exStyle)
+Case "radiobutton": clsName = "button": nStyle = nStyle Or BS_AUTORADIOBUTTON Or BS_MULTILINE Or BS_NOTIFY
+            If c.Alignment = 1 Then nStyle = nStyle Or BS_RIGHTBUTTON Or BS_RIGHT
+            If InStr(1, flags, "g") Then nStyle = nStyle Or eBUTTON_GRAPHICAL
+            If InStr(1, flags, "o") Then nStyle = nStyle Or BS_OWNERDRAW
+            RaiseEvent CreateRadioButton(c.Name, iIndex, hPar, nStyle, exStyle)
+Case "radiobuttongroup": clsName = "button": nStyle = nStyle Or BS_AUTORADIOBUTTON Or WS_GROUP Or BS_MULTILINE Or BS_NOTIFY
+            If c.Alignment = 1 Then nStyle = nStyle Or BS_RIGHTBUTTON Or BS_RIGHT
+            If InStr(1, flags, "g") Then nStyle = nStyle Or eBUTTON_GRAPHICAL
+            If InStr(1, flags, "o") Then nStyle = nStyle Or BS_OWNERDRAW
+            RaiseEvent CreateRadioButton(c.Name, iIndex, hPar, nStyle, exStyle)
+Case Else:
+    RaiseEvent Create(c.Name, iIndex, hPar, clsName, nStyle, exStyle)
+End Select
+nStyle = nStyle Or WS_CHILD
+win = CreateWindowExW(exStyle, StrPtr(clsName), StrPtr(s), nStyle, l, t, w, h, hPar, n + 1, App.hInstance, 0)
+If clsName = "combobox" Then
+    GetComboBoxInfo win, VarPtr(combo)
+    m_Controls(n).hList = combo.hwndList
+    m_Controls(n).hEdit = combo.hwndItem
+    If combo.hwndList Then
+        SetWindowLongW combo.hwndList, -12&, n + 1
+        'SetProp combo.hwndList, "_ID_", n + 1
+        'pvSubclassItem m_Controls(n).m_SubclassList, combo.hwndList
+    End If
+    If combo.hwndItem Then
+        SetWindowLongW combo.hwndItem, -12&, n + 1
+        'SetProp combo.hwndItem, "_ID_", n + 1
+        pvSubclassItem m_Controls(n).m_SubclassItem, combo.hwndItem
+    End If
+End If
+Set fnt = c.Font
+SendMessageW win, WM_SETFONT, fnt.hFont, 1
+m_Controls(n).hWnd = win
+m_Controls(n).sName = c.Name
+m_Controls(n).sClass = clsName
+m_Controls(n).BackColor = FixColor(c.BackColor)
+m_Controls(n).ForeColor = FixColor(c.ForeColor)
+m_Controls(n).BackStyle = c.BackStyle + 1
+m_Controls(n).hCursor = -1
+m_Controls(n).ToolTipText = c.ToolTipText
+If Len(c.Tag) Then m_Controls(n).Tag = c.Tag
+pvSubclass2 m_Controls(n).m_Subclass, win
+m_Controls(n).iIndex = iIndex
+c.Visible = False
+c.LinkTimeout = n + 1
+End Sub
+
+Property Let NoRedraw(ctl As Object, b As Boolean)
 Dim win As Long
 win = GetWindow(ctl): If win = 0 Then Exit Property
 SendMessageW win, WM_SETREDRAW, IIf(b, 0, 1), 0
@@ -2142,6 +2167,7 @@ Dim cl As Collection
 Dim cnt As Long
 Dim s As String
 Dim sName As String
+Dim iIndex As Long
 Dim tme As tTRACKMOUSEEVENT
 Dim r As Long
 Dim clas As String
@@ -2160,9 +2186,10 @@ If id = 0 Then Exit Function
 
 id = id - 1
 sName = m_Controls(id).sName
+iIndex = m_Controls(id).iIndex
 clas = m_Controls(id).sClass
 
-RaiseEvent message(sName, wMsg, wParam, lParam, r, Handled)
+RaiseEvent Message(sName, iIndex, wMsg, wParam, lParam, r, Handled)
 If Handled Then SubclassProc = r: Exit Function
 
 Select Case wMsg
@@ -2238,38 +2265,38 @@ Case WM_MOUSEMOVE:
         tme.dwHoverTime = -1&
         TrackMouseEvent VarPtr(tme)
         bTrack = True
-        RaiseEvent MouseEnter(sName)
+        RaiseEvent MouseEnter(sName, iIndex)
     End If
     End If
-    RaiseEvent MouseMove(sName, wParam And 3, GetShift(wParam), Low16(lParam), High16(lParam))
+    RaiseEvent MouseMove(sName, iIndex, wParam And 3, GetShift(wParam), Low16(lParam), High16(lParam))
 Case WM_MOUSELEAVE:
-    bTrack = False: pvShowToolTip -1: RaiseEvent MouseLeave(sName)
+    bTrack = False: pvShowToolTip -1: RaiseEvent MouseLeave(sName, iIndex)
 Case WM_MOUSEHOVER:
     pvShowToolTip id
-    RaiseEvent MouseHover(sName, wParam And 3, GetShift(wParam), Low16(lParam), High16(lParam))
+    RaiseEvent MouseHover(sName, iIndex, wParam And 3, GetShift(wParam), Low16(lParam), High16(lParam))
     tme.cbSize = Len(tme)
     tme.dwFlags = 2
     tme.hwndTrack = hWnd
     tme.dwHoverTime = -1&
     TrackMouseEvent VarPtr(tme)
     bTrack = True
-Case WM_LBUTTONDOWN: RaiseEvent MouseDown(sName, vbLeftButton, GetShift(wParam), Low16(lParam), High16(lParam))
-                     If clas = "edit" Then RaiseEvent Click(sName)
-Case WM_RBUTTONDOWN: RaiseEvent MouseDown(sName, vbRightButton, GetShift(wParam), Low16(lParam), High16(lParam))
-Case WM_LBUTTONUP: RaiseEvent MouseUp(sName, vbLeftButton, GetShift(wParam), Low16(lParam), High16(lParam))
-Case WM_RBUTTONUP: RaiseEvent MouseUp(sName, vbRightButton, GetShift(wParam), Low16(lParam), High16(lParam))
-Case WM_LBUTTONDBLCLK: If clas = "edit" Then RaiseEvent DblClick(sName)
+Case WM_LBUTTONDOWN: RaiseEvent MouseDown(sName, iIndex, vbLeftButton, GetShift(wParam), Low16(lParam), High16(lParam))
+                     If clas = "edit" Then RaiseEvent Click(sName, iIndex)
+Case WM_RBUTTONDOWN: RaiseEvent MouseDown(sName, iIndex, vbRightButton, GetShift(wParam), Low16(lParam), High16(lParam))
+Case WM_LBUTTONUP: RaiseEvent MouseUp(sName, iIndex, vbLeftButton, GetShift(wParam), Low16(lParam), High16(lParam))
+Case WM_RBUTTONUP: RaiseEvent MouseUp(sName, iIndex, vbRightButton, GetShift(wParam), Low16(lParam), High16(lParam))
+Case WM_LBUTTONDBLCLK: If clas = "edit" Then RaiseEvent DblClick(sName, iIndex)
 Case WM_MOUSEWHEEL:
     ar(0) = Low16(lParam)
     ar(1) = High16(lParam)
     ScreenToClient (hWnd), VarPtr(ar(0))
-    RaiseEvent MouseWheel(sName, High16(wParam), GetShift(Low16(wParam)), ar(0), ar(1))
-Case WM_KEYDOWN: i = wParam: RaiseEvent KeyDown(sName, i, GetShift)
+    RaiseEvent MouseWheel(sName, iIndex, High16(wParam), GetShift(Low16(wParam)), ar(0), ar(1))
+Case WM_KEYDOWN: i = wParam: RaiseEvent KeyDown(sName, iIndex, i, GetShift)
     wParam = i
     If wParam = vbKeyA Then If GetShift = vbCtrlMask Then SendMessageW hWnd, EM_SETSEL, 0&, -1&: wParam = 0: Handled = True: Exit Function
-Case WM_KEYUP: i = wParam: RaiseEvent KeyUp(sName, i, GetShift)
+Case WM_KEYUP: i = wParam: RaiseEvent KeyUp(sName, iIndex, i, GetShift)
     wParam = i
-Case WM_CHAR: i = wParam: RaiseEvent KeyPress(sName, i)
+Case WM_CHAR: i = wParam: RaiseEvent KeyPress(sName, iIndex, i)
     If i = 1 Then i = 0
     wParam = i
     If i = 0 Then Handled = True
@@ -2281,7 +2308,7 @@ Case WM_DROPFILES:
         For n = 0 To cnt - 1
             cl.Add VBA.left(s, DragQueryFileW(wParam, n, StrPtr(s), Len(s)))
         Next
-        RaiseEvent DropFiles(sName, cl)
+        RaiseEvent DropFiles(sName, iIndex, cl)
     End If
     DragFinish wParam
 End Select
@@ -2297,6 +2324,7 @@ Static bTrack As Boolean
 Dim id As Integer
 Dim note As Integer
 Dim sName As String
+Dim iIndex As Long
 Dim tme As tTRACKMOUSEEVENT
 Dim ar(0 To 4) As Long
 Dim di As tDRAWITEMSTRUCT
@@ -2306,7 +2334,7 @@ Dim rc As RECTL
 Dim dc As Long
 Dim iMsg As Msg
 
-RaiseEvent message("", wMsg, wParam, lParam, r, Handled)
+RaiseEvent Message("", -1&, wMsg, wParam, lParam, r, Handled)
 If Handled Then SubclassFormProc = r: Exit Function
 
 If wMsg = WM_COMMAND Then
@@ -2336,7 +2364,7 @@ Case WM_DRAWITEM:
     CopyMemory VarPtr(di), lParam, Len(di)
     If m_Controls(id).hWnd <> di.hwndItem Then Exit Function
     l = di.rcItem.left: t = di.rcItem.top: w = di.rcItem.right - l: h = di.rcItem.bottom - t
-    RaiseEvent OwnerDraw(m_Controls(id).sName, di.hdc, di.itemID, l, t, w, h, di.itemAction, di.itemState)
+    RaiseEvent OwnerDraw(m_Controls(id).sName, m_Controls(id).iIndex, di.hdc, di.itemID, l, t, w, h, di.itemAction, di.itemState)
     Handled = True
     SubclassFormProc = 1
 Case WM_COMMAND:
@@ -2346,10 +2374,11 @@ Case WM_COMMAND:
     id = id - 1
     If m_Controls(id).hWnd <> lParam Then Exit Function
     sName = m_Controls(id).sName
+    iIndex = m_Controls(id).iIndex
     If m_Controls(id).sClass = "edit" Then
         Select Case note
-        Case EN_AFTER_PASTE: RaiseEvent AfterPaste(sName)
-        Case EN_BEFORE_PASTE: RaiseEvent BeforePaste(sName)
+        Case EN_AFTER_PASTE: RaiseEvent AfterPaste(sName, iIndex)
+        Case EN_BEFORE_PASTE: RaiseEvent BeforePaste(sName, iIndex)
         Case EN_CHANGE:
             If GetWindowTextLength(lParam) And m_Controls(id).bCue = True Then
                 m_Controls(id).bCue = False
@@ -2362,46 +2391,46 @@ Case WM_COMMAND:
                 'GdiFlush
                 InvalidateRectV lParam, 0, 1
             End If
-            RaiseEvent Change(sName)
-        Case EN_KILLFOCUS: RaiseEvent LostFocus(sName)
-        Case EN_SETFOCUS: RaiseEvent GotFocus(sName)
-        Case EN_VSCROLL: RaiseEvent Scroll(sName)
+            RaiseEvent Change(sName, iIndex)
+        Case EN_KILLFOCUS: RaiseEvent LostFocus(sName, iIndex)
+        Case EN_SETFOCUS: RaiseEvent GotFocus(sName, iIndex)
+        Case EN_VSCROLL: RaiseEvent Scroll(sName, iIndex)
         End Select
     ElseIf m_Controls(id).sClass = "button" Then
         Select Case note
-        Case BN_CLICKED: RaiseEvent Click(sName)
-        Case BN_DBLCLK: RaiseEvent DblClick(sName)
-        Case BN_SETFOCUS: RaiseEvent GotFocus(sName)
-        Case BN_KILLFOCUS: RaiseEvent LostFocus(sName)
+        Case BN_CLICKED: RaiseEvent Click(sName, iIndex)
+        Case BN_DBLCLK: RaiseEvent DblClick(sName, iIndex)
+        Case BN_SETFOCUS: RaiseEvent GotFocus(sName, iIndex)
+        Case BN_KILLFOCUS: RaiseEvent LostFocus(sName, iIndex)
         End Select
     ElseIf m_Controls(id).sClass = "listbox" Then
         Select Case note
-        Case LBN_DBLCLK: RaiseEvent DblClick(sName)
-        Case LBN_SETFOCUS: RaiseEvent GotFocus(sName)
-        Case LBN_KILLFOCUS: RaiseEvent LostFocus(sName)
-        Case LBN_SELCHANGE: RaiseEvent SelChange(sName)
+        Case LBN_DBLCLK: RaiseEvent DblClick(sName, iIndex)
+        Case LBN_SETFOCUS: RaiseEvent GotFocus(sName, iIndex)
+        Case LBN_KILLFOCUS: RaiseEvent LostFocus(sName, iIndex)
+        Case LBN_SELCHANGE: RaiseEvent SelChange(sName, iIndex)
         End Select
     ElseIf m_Controls(id).sClass = "combobox" Then
         Select Case note
-        Case CBN_DBLCLK: RaiseEvent DblClick(sName)
-        Case CBN_SETFOCUS: RaiseEvent GotFocus(sName)
-        Case CBN_KILLFOCUS: RaiseEvent LostFocus(sName)
-        Case CBN_SELCHANGE: RaiseEvent SelChange(sName)
-        Case CBN_EDITCHANGE: RaiseEvent Change(sName)
-        Case CBN_DROPDOWN: RaiseEvent DropDown(sName)
-        Case CBN_CLOSEUP: RaiseEvent DropClose(sName)
+        Case CBN_DBLCLK: RaiseEvent DblClick(sName, iIndex)
+        Case CBN_SETFOCUS: RaiseEvent GotFocus(sName, iIndex)
+        Case CBN_KILLFOCUS: RaiseEvent LostFocus(sName, iIndex)
+        Case CBN_SELCHANGE: RaiseEvent SelChange(sName, iIndex)
+        Case CBN_EDITCHANGE: RaiseEvent Change(sName, iIndex)
+        Case CBN_DROPDOWN: RaiseEvent DropDown(sName, iIndex)
+        Case CBN_CLOSEUP: RaiseEvent DropClose(sName, iIndex)
         End Select
     ElseIf m_Controls(id).sClass = "static" Then
         Select Case note
-        Case 0: RaiseEvent Click(sName)
-        Case 1: RaiseEvent DblClick(sName)
+        Case 0: RaiseEvent Click(sName, iIndex)
+        Case 1: RaiseEvent DblClick(sName, iIndex)
         End Select
     End If
 Case WM_MOUSEWHEEL:
     ar(0) = Low16(lParam)
     ar(1) = High16(lParam)
     ScreenToClient (hWnd), VarPtr(ar(0))
-    RaiseEvent MouseWheel("", High16(wParam), GetShift(Low16(wParam)), ar(0), ar(1))
+    RaiseEvent MouseWheel("", -1&, High16(wParam), GetShift(Low16(wParam)), ar(0), ar(1))
 Case WM_MOUSEMOVE:
     If bTrack = False Then
         tme.cbSize = Len(tme)
@@ -2410,11 +2439,11 @@ Case WM_MOUSEMOVE:
         tme.dwHoverTime = -1&
         TrackMouseEvent VarPtr(tme)
         bTrack = True
-        RaiseEvent MouseEnter("")
+        RaiseEvent MouseEnter("", -1&)
     End If
-Case WM_MOUSELEAVE: bTrack = False: RaiseEvent MouseLeave("")
+Case WM_MOUSELEAVE: bTrack = False: RaiseEvent MouseLeave("", -1&)
 Case WM_MOUSEHOVER:
-    RaiseEvent MouseHover("", wParam And 3, GetShift(wParam), Low16(lParam), High16(lParam))
+    RaiseEvent MouseHover("", -1&, wParam And 3, GetShift(wParam), Low16(lParam), High16(lParam))
     tme.cbSize = Len(tme)
     tme.dwFlags = 2
     tme.hwndTrack = hWnd
@@ -2510,13 +2539,13 @@ Case WM_MOUSEMOVE:
         tme.dwHoverTime = -1&
         TrackMouseEvent VarPtr(tme)
         bTrack = True
-        RaiseEvent MouseEnter(sName)
+        RaiseEvent MouseEnter(sName, m_Controls(id).iIndex)
     End If
 Case WM_MOUSELEAVE:
-    bTrack = False: pvShowToolTip -1: RaiseEvent MouseLeave(sName)
+    bTrack = False: pvShowToolTip -1: RaiseEvent MouseLeave(sName, m_Controls(id).iIndex)
 Case WM_MOUSEHOVER:
     pvShowToolTip id
-    RaiseEvent MouseHover(sName, wParam And 3, GetShift(wParam), Low16(lParam), High16(lParam))
+    RaiseEvent MouseHover(sName, m_Controls(id).iIndex, wParam And 3, GetShift(wParam), Low16(lParam), High16(lParam))
     tme.cbSize = Len(tme)
     tme.dwFlags = 2
     tme.hwndTrack = hWnd
@@ -2719,11 +2748,11 @@ pvUnsubclass m_pSubclassForm
 DestroyWindow m_hTTT
 End Sub
 
-Private Function CompareItems(ctl As Object, sName As String, SortBy As eSortList, ByVal p1 As Long, ByVal p2 As Long, s1 As String, s2 As String, ByVal d1 As Long, ByVal d2 As Long, ByVal Param As Long) As Long
+Private Function CompareItems(ctl As Object, sName As String, ByVal iIndex As Long, SortBy As eSortList, ByVal p1 As Long, ByVal p2 As Long, s1 As String, s2 As String, ByVal d1 As Long, ByVal d2 As Long, ByVal Param) As Long
 Dim t As eSortList
 t = SortBy And 15
 If t = eSortCustom Then
-    RaiseEvent Sort(sName, p1, p2, CompareItems, Param)
+    RaiseEvent Sort(sName, iIndex, p1, p2, CompareItems, Param)
     Exit Function
 End If
 If t = eSortByStringBinary Then
@@ -2738,7 +2767,7 @@ End If
 If SortBy And eSortDescending Then CompareItems = -CompareItems
 End Function
 
-Sub SortList(ctl As Control, SortBy As eSortList, Optional ByVal Param As Long)
+Sub SortList(ctl As Control, SortBy As eSortList, Optional ByVal Param)
 Dim win As Long
 Dim ix As Long
 Dim cnt As Long
@@ -2753,12 +2782,15 @@ Dim c As Long, k As Long
 Dim sName As String
 Dim sList() As String
 Dim aData() As Long
+Dim iIndex As Long
 
 win = GetWindow(ctl): If win = 0 Then Exit Sub
 ix = GetIx(ctl): If ix < 0 Then Exit Sub
 cnt = ListCount(ctl)
 If cnt < 2 Then Exit Sub
+iIndex = m_Controls(ix).iIndex
 
+NoRedraw(ctl) = True
 sName = m_Controls(ix).sName
 ReDim sList(0 To cnt - 1)
 ReDim aData(0 To cnt - 1)
@@ -2778,24 +2810,24 @@ Do While grp < cnt ' pass the list until all is sorted
     Do While p < cnt ' pass every sub-list pairs in the list
         k = p
         q = p + grp
-        If q >= cnt Then CopyMemory VarPtr(aList2(k)), VarPtr(aList1(p)), 4 * (cnt - p): Exit Do
+        If q >= cnt Then CopyMemory dat2 + k * 4, dat1 + p * 4, 4 * (cnt - p): Exit Do
         pe = q
         qe = q + grp
         If qe > cnt Then qe = cnt
         Do ' merge p and q
             i1 = aList1(p)
             i2 = aList1(q)
-            c = CompareItems(ctl, sName, SortBy, i1, i2, sList(i1), sList(i2), aData(i1), aData(i2), Param)
+            c = CompareItems(ctl, sName, iIndex, SortBy, i1, i2, sList(i1), sList(i2), aData(i1), aData(i2), Param)
             If c <= 0 Then
                 aList2(k) = aList1(p)
                 p = p + 1
                 k = k + 1
-                If p = pe Then CopyMemory VarPtr(aList2(k)), VarPtr(aList1(q)), 4 * (qe - q): Exit Do
+                If p = pe Then CopyMemory dat2 + k * 4, dat1 + q * 4, 4 * (qe - q): Exit Do
             ElseIf c > 0 Then
                 aList2(k) = aList1(q)
                 q = q + 1
                 k = k + 1
-                If q = qe Then CopyMemory VarPtr(aList2(k)), VarPtr(aList1(p)), 4 * (pe - p): Exit Do
+                If q = qe Then CopyMemory dat2 + k * 4, dat1 + p * 4, 4 * (pe - p): Exit Do
             End If
         Loop
         p = qe
@@ -2811,6 +2843,7 @@ For i = 0 To cnt - 1
     p = aList1(i)
     AddItem ctl, sList(p), -1, aData(p)
 Next
+NoRedraw(ctl) = False
 End Sub
 
 Private Function ArrayDataPtr(arr) As Long
@@ -2831,26 +2864,28 @@ If (typ And &H4000) Then GetMem4 ptr, ptr
 ArraySA = ptr
 End Function
 
-Function GetSortedIndexOfNewItemAssumingListIsSorted(ctl As Object, SortBy As eSortList, s As String, Optional nItemData As Long, Optional Param As Long) As Long
+Function GetSortedIndexOfNewItemAssumingListIsSorted(ctl As Object, SortBy As eSortList, s As String, Optional nItemData As Long, Optional Param) As Long
 Dim win As Long
 Dim ix As Long
 Dim cnt As Long
 Dim low As Long, high As Long, med As Long
 Dim c As Long
 Dim sName As String
+Dim iIndex As Long
 
 win = GetWindow(ctl): If win = 0 Then Exit Function
 ix = GetIx(ctl): If ix < 0 Then Exit Function
 cnt = ListCount(ctl)
 If cnt = 0 Then Exit Function
 sName = m_Controls(ix).sName
+iIndex = m_Controls(ix).iIndex
 
 low = 0
 high = cnt - 1
 
 Do While low <= high
     med = (low + high) \ 2
-    c = CompareItems(ctl, sName, SortBy, med, -1, List(ctl, med), s, ItemData(ctl, med), nItemData, Param)
+    c = CompareItems(ctl, sName, iIndex, SortBy, med, -1, List(ctl, med), s, ItemData(ctl, med), nItemData, Param)
     If c = 0 Then GetSortedIndexOfNewItemAssumingListIsSorted = med: Exit Function
     If c < 0 Then low = med + 1 Else high = med - 1
 Loop
@@ -2884,7 +2919,7 @@ Set frm = Screen.ActiveForm
 If frm Is Nothing Then Exit Function
 If active Then Exit Function
 active = True
-cnt = frm.Controls.Count * 2
+cnt = frm.Controls.Count
 ReDim a(0 To cnt)
 cti = -1
 For Each c In frm.Controls
