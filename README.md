@@ -10,7 +10,7 @@ By using standard VB `Label` controls as design-time placeholders, UniForm trans
 
 * **Zero Dependencies:** Just drop `UniForm.cls` into your project. No OCXs, no Type Libraries (`.tlb`), no installation headaches.
 * **True Unicode Support:** Bypass classic VB's ANSI bottlenecks for international text and modern system rendering.
-* **WYSIWYG Form Designer:** Leverage the speed of the native VB6 IDE designer using standard `Label` controls for layout and positioning.
+* **WYSIWYG Form Designer:** Leverage the convenient of the native VB6 IDE designer using standard `Label` controls for layout and positioning.
 * **Centralized Subclassing:** Say goodbye to IDE crashes caused by multi-control subclassing hooks. One central message router handles everything cleanly.
 
 ---
