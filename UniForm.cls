@@ -20,7 +20,7 @@ Attribute VB_Exposed = False
 ' THE CONCEPT:
 '    1. In a VB Form, create Labels as placeholders for controls' position and size
 '    2. Give the labels names that fit the controls, like: lstFiles, txtAddress, cmdPlay, etc
-'    3. Set labels' font, backcolor, forecolor, backstyle, alignment, border style, appearance - those will be copied to the actual controls
+'    3. Set labels' design properties: Font, BackColor, ForeColor, BackStyle, Alignment, Border Style, Appearance, RightToLeft - those will be copied to the actual controls
 '    4. For each label, enter the Windows Control Class in LinkItem property.
 '       Any valid Windows Class is possible, but internal supported classes are:
 '       Edit(TextBox), ListBox, ComboBox, Frame, Static(For labels and images),
@@ -35,7 +35,7 @@ Attribute VB_Exposed = False
 '       A list of all wrapper methods and properties - below.
 '    9. Events: Standard VB events like MouseMove, KeyDown etc, In addition: MouseWheel, MouseEnter, MouseLeave, MouseHover, OwnerDraw(for owner-drawn controls), Message(all messages, including user messages)
 '       Unlike VB-events, a specific event handler is for ALL CONTROLS: Uni_Event(ControlName...). Use ControlName to handle an individual control inside the event handler
-'       The Compare events is used when calling SortList for ListBox or ComboBox with eSortCustom flag. The event expects Cmp parameter to become -1,1 or 0 according to items comparison.
+'       The Compare event is used when calling SortList for ListBox or ComboBox with eSortCustom flag. The event expects Cmp parameter to become -1,1 or 0 according to items comparison order.
 '   10. Control-Arrays: It is possible to create arrays of Labels and refer to each element by Index: Uni.Text(txtName(i)) = asName(i). All UniForm events pass iIndex parameter (which is -1 if not an array)
 '       It is also possible to dynamically add controls to the form: Load txtName(n) and then add to UniForm: Uni.AddControl txtName(n)
 '   11. Bonus: For tooltips, there is HideToolTip and ShowToolTip to show the tooltip with arbitrary text and position
@@ -50,15 +50,16 @@ Attribute VB_Exposed = False
 '   List of all supported wrapper methods: (methods with (rw) are properties with Get(r) and/or Let(w))
 '       ListBox and ComboBox: AddItem, RemoveItem, List(rw), ListCount(r), ListIndex(rw), ItemData(rw), ClearList, SortList, MouseRow(r), TopIndex(rw),
 '                             FindItem, ListWidth(w), ItemHeight(rw), VisibleItems(r), IsItemVisible(r)
-'       TextBox (and ComboBox's edit part): SetPasswordChar, HideSelection(rw), Locked(rw), MaxLength(w), NumbersOnly(w), RTL(w), ScrollBars(w), CueBanner(rw)
+'       TextBox (and ComboBox's edit part): SetPasswordChar, HideSelection(rw), Locked(rw), MaxLength(w), NumbersOnly(w), RTL(w), ScrollBars(w), CueBanner(rw), ScrollEdit
 '                                           SelStart(r), SelLen(r), SelSet, SelText(rw), CurLine(r), LineStart, LineLen, GetLine, CharPoint, CharAtPoint,
 '       ComboBox: DropState(rw), DropWidth(w), CueBanner(rw) (This is a custom CueBanner, not Windows Controls CueBanner)
 '       CheckBox/RadioButton: Checked(rw)
-'       For all controls: Tag(Variant)(rw), Text(rw), Visible(rw), Enable(rw), ToolTipText(rw), ToolTipFlags(alignment of tooltiptext)(w), TextWidth(text width with control's font)(r), TextHeight(r)
+'       Button: ButtonClick
+'       For all controls: Tag(Variant)(rw), Text(rw), Visible(rw), Enable(rw), ToolTipText(rw), ToolTipFlags(alignment of tooltiptext)(w), TextWidth(using control's font)(r), TextHeight(r)
 '       Left, Top, Width, Height, ClientWidth, ClientHeight, Move -> All values r/w are in pixels!
 '       MouseInWindow, AcceptFiles(w), SetMouseCursor, BackColor(rw), ForeColor(rw), BackStyle(rw), SetFocus, ZOrder, Alignment(w), BorderStyle(w), Appearance(w), SetFont, Refresh, GetWindow
 '       SetMouseCursor accepts an hCursor or enum with system cursor index. SetFont accepts VB IFont or hFont.
-
+'
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 Option Explicit
@@ -133,7 +134,7 @@ Private WM_CUEBANNER As Long
 
 Private Type RECTL
     left As Long
-    top As Long
+    Top As Long
     right As Long
     bottom As Long
 End Type
@@ -242,38 +243,40 @@ End Type
 
 Private Declare Function GetModuleHandle& Lib "kernel32" Alias "GetModuleHandleA" (ByVal lpModuleName As String)
 Private Declare Function GetProcAddress& Lib "kernel32" (ByVal hModule&, ByVal lpProcName As String)
-Private Declare Function CallWindowProcW& Lib "user32" (ByVal lpPrevWndFunc&, ByVal hWnd&, ByVal iMsg&, ByVal wParam&, ByVal lParam&)
-Private Declare Function DefSubclassProc413 Lib "comctl32" Alias "#413" (ByVal hWnd As Long, ByVal wMsg As Long, ByVal wParam As Long, ByVal lParam As Long) As Long
 Private Declare Function GetProcByOrdinal& Lib "kernel32" Alias "GetProcAddress" (ByVal hModule&, ByVal lpProcOrdinal&)
-'Private Declare Function CallWindowProc& Lib "user32.dll" Alias "CallWindowProcA" (ByVal lpPrevWndFunc&, ByVal hwnd&, ByVal iMsg&, ByVal wParam&, ByVal lParam&)
 Private Declare Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (ByVal Destination&, ByVal Source&, ByVal Length&)
-Private Declare Function FindWindowExA& Lib "user32" (ByVal hwndParent&, ByVal hWndChildAfter&, ByVal lpszClass As String, ByVal lpszWindow As String)
-Private Declare Function GetWindowThreadProcessId& Lib "user32.dll" (ByVal hWnd&, ByVal lpdwProcessId&)
+Private Declare Function CompareString& Lib "kernel32.dll" Alias "CompareStringW" (ByVal Locale&, ByVal dwCmpFlags&, ByVal lpString1&, ByVal cchCount1&, ByVal lpString2&, ByVal cchCount2&)
 Private Declare Function GetCurrentProcessId& Lib "kernel32.dll" ()
 Private Declare Function VirtualAlloc& Lib "kernel32" (ByVal lpAddress&, ByVal dwSize&, ByVal flAllocationType&, ByVal flProtect&)
+Private Declare Function GetSystemMetrics Lib "user32" (ByVal nIndex As Long) As Long
+
 Private Declare Function CreateWindowExW Lib "user32" (ByVal dwExStyle As Long, ByVal lpClassName As Long, ByVal lpWindowName As Long, ByVal dwStyle As Long, ByVal X As Long, ByVal Y As Long, ByVal nWidth As Long, ByVal nHeight As Long, ByVal hwndParent As Long, ByVal hMenu As Long, ByVal hInstance As Long, ByVal lpParam As Long) As Long
-Private Declare Function WindowFromPoint& Lib "user32" (ByVal X&, ByVal Y&)
-Private Declare Function LoadCursorV& Lib "user32" Alias "LoadCursorA" (ByVal hInstance&, ByVal lpCursorName&)
-Private Declare Function SetCursor Lib "user32.dll" (ByVal hCursor As Long) As Long
-Private Declare Function GetKeyState Lib "user32.dll" (ByVal nVirtKey As Long) As Integer
-Private Declare Function GetAsyncKeyState Lib "user32" (ByVal vKey As Long) As Integer
-Private Declare Function GetCursorPos Lib "user32.dll" (ByVal lpPoint As Long) As Long
-Private Declare Function TrackMouseEvent& Lib "user32.dll" (ByVal lpEventTrack&)
+Private Declare Function CallWindowProcW& Lib "user32" (ByVal lpPrevWndFunc&, ByVal hWnd&, ByVal iMsg&, ByVal wParam&, ByVal lParam&)
+Private Declare Function DefSubclassProc413 Lib "comctl32" Alias "#413" (ByVal hWnd As Long, ByVal wMsg As Long, ByVal wParam As Long, ByVal lParam As Long) As Long
+Private Declare Function FindWindowExA& Lib "user32" (ByVal hwndParent&, ByVal hWndChildAfter&, ByVal lpszClass As String, ByVal lpszWindow As String)
 Private Declare Function SendMessageW Lib "user32" (ByVal hWnd As Long, ByVal wMsg As Long, ByVal wParam As Long, ByVal lParam As Long) As Long
 Private Declare Function PostMessageW& Lib "user32.dll" (ByVal hWnd&, ByVal wMsg&, ByVal wParam&, ByVal lParam&)
+Private Declare Function GetWindowThreadProcessId& Lib "user32.dll" (ByVal hWnd&, ByVal lpdwProcessId&)
+Private Declare Function WindowFromPoint& Lib "user32" (ByVal X&, ByVal Y&)
 Private Declare Function GetDlgItem Lib "user32" (ByVal hWndDlg As Long, ByVal id As Long) As Long
 Private Declare Function GetDlgCtrlID Lib "user32" (ByVal hWndCtl As Long) As Long
-Private Declare Function GetSystemMetrics Lib "user32" (ByVal nIndex As Long) As Long
-Private Declare Function MonitorFromWindow& Lib "user32" (ByVal hWnd&, ByVal dwFlags&)
-Private Declare Function GetMonitorInfoA& Lib "user32" (ByVal hMonitor&, ByVal lpmi&)
-Private Declare Function CompareString& Lib "kernel32.dll" Alias "CompareStringW" (ByVal Locale&, ByVal dwCmpFlags&, ByVal lpString1&, ByVal cchCount1&, ByVal lpString2&, ByVal cchCount2&)
-Private Declare Function DragQueryFileW Lib "Shell32.dll" (ByVal drop_handle As Long, ByVal UINT As Long, ByVal lpStr As Long, ByVal ch As Long) As Long
-Private Declare Sub DragFinish Lib "Shell32" (ByVal hDrop&)
-Private Declare Sub DragAcceptFiles Lib "Shell32" (ByVal hWnd&, ByVal fAccept&)
 Private Declare Function SetWindowsHookExW& Lib "user32" (ByVal idHook&, ByVal lpfn&, ByVal hmod&, ByVal dwThreadId&)
 Private Declare Function UnhookWindowsHookEx& Lib "user32" (ByVal hHook&)
 Private Declare Function CallNextHookEx& Lib "user32" (ByVal hHook&, ByVal ncode&, ByVal wParam&, lParam As Any)
 
+Private Declare Function GetCursorPos Lib "user32.dll" (ByVal lpPoint As Long) As Long
+Private Declare Function LoadCursorV& Lib "user32" Alias "LoadCursorA" (ByVal hInstance&, ByVal lpCursorName&)
+Private Declare Function SetCursor Lib "user32.dll" (ByVal hCursor As Long) As Long
+Private Declare Function TrackMouseEvent& Lib "user32.dll" (ByVal lpEventTrack&)
+Private Declare Function GetKeyState Lib "user32.dll" (ByVal nVirtKey As Long) As Integer
+Private Declare Function GetAsyncKeyState Lib "user32" (ByVal vKey As Long) As Integer
+Private Declare Function MonitorFromWindow& Lib "user32" (ByVal hWnd&, ByVal dwFlags&)
+Private Declare Function GetMonitorInfoA& Lib "user32" (ByVal hMonitor&, ByVal lpmi&)
+Private Declare Function DragQueryFileW Lib "Shell32.dll" (ByVal drop_handle As Long, ByVal UINT As Long, ByVal lpStr As Long, ByVal ch As Long) As Long
+Private Declare Sub DragFinish Lib "Shell32" (ByVal hDrop&)
+Private Declare Sub DragAcceptFiles Lib "Shell32" (ByVal hWnd&, ByVal fAccept&)
+
+Private Declare Function ShowWindow Lib "user32.dll" (ByVal hWnd As Long, ByVal nCmdShow As Long) As Long
 Private Declare Function GetWindowTextLength Lib "user32.dll" Alias "GetWindowTextLengthW" (ByVal hWnd As Long) As Long
 Private Declare Function GetWindowTextW Lib "user32.dll" (ByVal hWnd As Long, ByVal lpString As Long, ByVal cch As Long) As Long
 Private Declare Function SetWindowTextW Lib "user32.dll" (ByVal hWnd As Long, ByVal lpString As Long) As Long
@@ -281,8 +284,6 @@ Private Declare Function EnableWindow Lib "user32.dll" (ByVal hWnd As Long, ByVa
 Private Declare Function IsWindowEnabled Lib "user32.dll" (ByVal hWnd As Long) As Long
 Private Declare Function SetWindowPos Lib "user32" (ByVal hWnd&, ByVal hWndInsertAfter&, ByVal X&, ByVal Y&, ByVal cx&, ByVal cy&, ByVal wFlags&) As Long
 Private Declare Function IsWindowVisible Lib "user32.dll" (ByVal hWnd As Long) As Long
-Private Declare Function ShowWindow Lib "user32.dll" (ByVal hWnd As Long, ByVal nCmdShow As Long) As Long
-Private Declare Function GetComboBoxInfo& Lib "user32" (ByVal hwndCombo&, ByVal pcbi&)
 Private Declare Function GetClientRect& Lib "user32" (ByVal hWnd&, lpRect As RECTL)
 Private Declare Function GetWindowRect& Lib "user32" (ByVal hWnd&, lpRect As RECTL)
 Private Declare Function ClientToScreen& Lib "user32" (ByVal hWnd&, ByVal lpPoint&)
@@ -303,6 +304,10 @@ Private Declare Function IsDialogMessageW& Lib "user32" (ByVal hDlg&, ByVal lpMs
 Private Declare Function IsDialogMessageA& Lib "user32" (ByVal hDlg&, ByVal lpMsg&)
 Private Declare Function GetFocus Lib "user32.dll" () As Long
 Private Declare Function SetFocusApi Lib "user32.dll" Alias "SetFocus" (ByVal hWnd As Long) As Long
+Private Declare Function GetComboBoxInfo& Lib "user32" (ByVal hwndCombo&, ByVal pcbi&)
+Private Declare Function PtInRect Lib "user32.dll" (ByVal lpRect As Long, ByVal X As Long, ByVal Y As Long) As Long
+Private Declare Function OffsetRect Lib "user32" (ByVal lpRect As Long, ByVal X As Long, ByVal Y As Long) As Long
+Private Declare Function GetDeviceCaps Lib "Gdi32" (ByVal hdc As Long, ByVal nIndex As Long) As Long
 
 Private Declare Function SelectObject Lib "Gdi32" (ByVal hdc As Long, ByVal hObject As Long) As Long
 Private Declare Function GetObjectAPI Lib "Gdi32" Alias "GetObjectW" (ByVal hObject As Long, ByVal nCount As Long, lpObject As Any) As Long
@@ -322,13 +327,10 @@ Private Declare Function GetBkMode Lib "Gdi32" (ByVal hdc As Long) As Long
 Private Declare Function GetBkColor Lib "Gdi32" (ByVal hdc As Long) As Long
 Private Declare Function SetBkColor Lib "Gdi32" (ByVal hdc As Long, ByVal crColor As Long) As Long
 Private Declare Function DrawText Lib "user32" Alias "DrawTextW" (ByVal hdc As Long, ByVal lpStr As Long, ByVal nCount As Long, ByVal lpRect As Long, ByVal wFormat As Long) As Long
-Private Declare Function PtInRect Lib "user32.dll" (ByVal lpRect As Long, ByVal X As Long, ByVal Y As Long) As Long
-Private Declare Function OffsetRect Lib "user32" (ByVal lpRect As Long, ByVal X As Long, ByVal Y As Long) As Long
-Private Declare Function GetDeviceCaps Lib "Gdi32" (ByVal hdc As Long, ByVal nIndex As Long) As Long
 Private Declare Function CreateFontA& Lib "Gdi32" (ByVal cHeight&, ByVal cWidth&, ByVal cEscapement&, ByVal cOrientation&, ByVal cWeight&, ByVal bItalic&, ByVal bUnderline&, ByVal bStrikeOut&, ByVal iCharSet&, ByVal iOutPrecision&, ByVal iClipPrecision&, ByVal iQuality&, ByVal iPitchAndFamily&, ByVal pszFaceName$)
 Private Declare Function CreateFontIndirectW Lib "Gdi32" (ByVal pLogFont As Long) As Long
 Private Declare Function GdiFlush& Lib "Gdi32" ()
-Private Declare Function IntersectClipRect& Lib "Gdi32" (ByVal hdc&, ByVal left&, ByVal top&, ByVal right&, ByVal bottom&)
+Private Declare Function IntersectClipRect& Lib "Gdi32" (ByVal hdc&, ByVal left&, ByVal Top&, ByVal right&, ByVal bottom&)
 
 Private Declare Function SysAllocString& Lib "oleaut32" (ByVal ptr&)
 Private Declare Function SysAllocStringLen& Lib "oleaut32" (ByVal ptr&, ByVal Length&)
@@ -408,7 +410,14 @@ Enum eSortList
     eSortDescending = 16&
 End Enum
 
-Private Const WM_CREATE = &H1&
+Enum eScrollType
+    ePageUp = 2000000000
+    ePageDown
+    eToCaret
+End Enum
+
+Private Const WM_CREATE& = &H1&
+Private Const WM_DESTROY& = &H2&
 Private Const WM_PAINT& = &HF&
 Private Const WM_COMMAND As Long = &H111
 Private Const WM_SETFONT As Long = &H30&
@@ -925,7 +934,7 @@ Do
     Set Container = Container.Container
 Loop
 l = Container.ScaleX(c.left, sm, vbPixels)
-t = Container.ScaleY(c.top, sm, vbPixels)
+t = Container.ScaleY(c.Top, sm, vbPixels)
 w = Container.ScaleX(c.Width, sm, vbPixels)
 h = Container.ScaleY(c.Height, sm, vbPixels)
 hPar = Container.hWnd
@@ -946,9 +955,9 @@ Case "static": nStyle = nStyle Or SS_NOTIFY
                If InStr(1, flags, "o") Then nStyle = nStyle Or eSS_OWNERDRAW
                RaiseEvent CreateStatic(c.Name, iIndex, hPar, Style2, nStyle, exStyle)
                nStyle = nStyle Or Style2
-Case "edit": If c.Alignment = 1 Then nStyle = nStyle Or ES_RIGHT: exStyle = exStyle Or WS_EX_RIGHT
+Case "edit": If c.Alignment = 1 Then nStyle = nStyle Or ES_RIGHT ': exStyle = exStyle Or WS_EX_RIGHT
              If c.Alignment = 2 Then nStyle = nStyle Or ES_CENTER
-             If c.RightToLeft Then exStyle = exStyle Or WS_EX_RTLREADING Or WS_EX_LEFTSCROLLBAR
+             If c.RightToLeft Then exStyle = exStyle Or WS_EX_RTLREADING Or WS_EX_LEFTSCROLLBAR: exStyle = exStyle Or WS_EX_RIGHT
              nStyle = nStyle Or ES_AUTOHSCROLL Or ES_AUTOVSCROLL Or ES_WANTRETURN
              If InStr(1, flags, "l") Then nStyle = nStyle Or eEDIT_LOCKED
              If InStr(1, flags, "m") Then nStyle = nStyle Or eEDIT_MULTILINE
@@ -1442,7 +1451,7 @@ dc = GetDC(0)
 SelectObject dc, hFont
 DrawText dc, StrPtr(txt), Len(txt), VarPtr(rc), DT_CALCRECT
 ReleaseDC 0, dc
-nHeight = rc.bottom - rc.top
+nHeight = rc.bottom - rc.Top
 TextWidth = rc.right - rc.left
 End Property
 
@@ -1457,8 +1466,17 @@ dc = GetDC(0)
 SelectObject dc, hFont
 DrawText dc, StrPtr(txt), Len(txt), VarPtr(rc), DT_CALCRECT
 ReleaseDC 0, dc
-TextHeight = rc.bottom - rc.top
+TextHeight = rc.bottom - rc.Top
 End Property
+
+Sub ScrollEdit(ctl As Object, nLines As eScrollType, ByVal nRows As Long)
+Dim win As Long
+win = GetWindow(ctl): If win = 0 Then Exit Sub
+If nLines = ePageDown Then SendMessageW win, EM_SCROLL, 3, 0: Exit Sub
+If nLines = ePageUp Then SendMessageW win, EM_SCROLL, 2, 0: Exit Sub
+If nLines = eToCaret Then SendMessageW win, EM_SCROLLCARET, 0, 0: Exit Sub
+SendMessageW win, EM_LINESCROLL, nRows, nLines
+End Sub
 
 Property Get SelStart(ctl As Object) As Long
 Dim win As Long
@@ -1636,6 +1654,12 @@ win = GetWindow(ctl): If win = 0 Then Exit Property
 EnableWindow win, IIf(b, 1, 0)
 End Property
 
+Sub ButtonClick(ctl As Object)
+Dim win As Long
+win = GetWindow(ctl): If win = 0 Then Exit Sub
+SendMessageW win, BM_CLICK, 0, 0
+End Sub
+
 Property Get Checked(ctl As Object) As Long
 Dim win As Long
 win = GetWindow(ctl): If win = 0 Then Exit Property
@@ -1666,28 +1690,28 @@ Dim rc As RECTL
 win = GetWindow(ctl): If win = 0 Then Exit Property
 GetWindowRect win, rc
 If TypeOf ctl Is Form Then rc.left = c Else ScreenToClient GetParent(win), VarPtr(rc): rc.left = c
-SetWindowPos win, 0, rc.left, rc.top, 0, 0, SWP_NOACTIVATE Or SWP_NOSIZE Or SWP_NOZORDER
+SetWindowPos win, 0, rc.left, rc.Top, 0, 0, SWP_NOACTIVATE Or SWP_NOSIZE Or SWP_NOZORDER
 End Property
 
-Property Get top(ctl As Object) As Long
+Property Get Top(ctl As Object) As Long
 Dim win As Long
 Dim rc As RECTL
 Dim par As Long
 win = GetWindow(ctl): If win = 0 Then Exit Property
 GetWindowRect win, rc
-If TypeOf ctl Is Form Then top = rc.top: Exit Property
+If TypeOf ctl Is Form Then Top = rc.Top: Exit Property
 par = GetParent(win)
 ScreenToClient par, VarPtr(rc)
-top = rc.top
+Top = rc.Top
 End Property
 
-Property Let top(ctl As Object, ByVal c As Long)
+Property Let Top(ctl As Object, ByVal c As Long)
 Dim win As Long
 Dim rc As RECTL
 win = GetWindow(ctl): If win = 0 Then Exit Property
 GetWindowRect win, rc
-If TypeOf ctl Is Form Then rc.top = c Else ScreenToClient GetParent(win), VarPtr(rc): rc.top = c
-SetWindowPos win, 0, rc.left, rc.top, 0, 0, SWP_NOACTIVATE Or SWP_NOSIZE Or SWP_NOZORDER
+If TypeOf ctl Is Form Then rc.Top = c Else ScreenToClient GetParent(win), VarPtr(rc): rc.Top = c
+SetWindowPos win, 0, rc.left, rc.Top, 0, 0, SWP_NOACTIVATE Or SWP_NOSIZE Or SWP_NOZORDER
 End Property
 
 Property Get Width(ctl As Object) As Long
@@ -1699,7 +1723,7 @@ Dim h As Long
 win = GetWindow(ctl): If win = 0 Then Exit Property
 GetWindowRect win, rc
 w = rc.right - rc.left
-h = rc.bottom - rc.top
+h = rc.bottom - rc.Top
 Width = w
 End Property
 
@@ -1712,7 +1736,7 @@ Dim h As Long
 win = GetWindow(ctl): If win = 0 Then Exit Property
 GetWindowRect win, rc
 w = rc.right - rc.left
-h = rc.bottom - rc.top
+h = rc.bottom - rc.Top
 Height = h
 End Property
 
@@ -1724,7 +1748,7 @@ Dim h As Long
 win = GetWindow(ctl): If win = 0 Then Exit Property
 GetWindowRect win, rc
 w = rc.right - rc.left
-h = rc.bottom - rc.top
+h = rc.bottom - rc.Top
 SetWindowPos win, 0, 0, 0, c, h, SWP_NOACTIVATE Or SWP_NOMOVE Or SWP_NOZORDER
 End Property
 
@@ -1736,7 +1760,7 @@ Dim h As Long
 win = GetWindow(ctl): If win = 0 Then Exit Property
 GetWindowRect win, rc
 w = rc.right - rc.left
-h = rc.bottom - rc.top
+h = rc.bottom - rc.Top
 SetWindowPos win, 0, 0, 0, w, c, SWP_NOACTIVATE Or SWP_NOMOVE Or SWP_NOZORDER
 End Property
 
@@ -1772,7 +1796,7 @@ win = GetWindow(ctl): If win = 0 Then Exit Property
 GetWindowRect win, rc
 GetClientRect win, rc2
 w = rc.right - rc.left
-h = rc.bottom - rc.top
+h = rc.bottom - rc.Top
 SetWindowPos win, 0, 0, 0, c + w - rc2.right, h, SWP_NOACTIVATE Or SWP_NOMOVE Or SWP_NOZORDER
 End Property
 
@@ -1786,7 +1810,7 @@ win = GetWindow(ctl): If win = 0 Then Exit Property
 GetWindowRect win, rc
 GetClientRect win, rc2
 w = rc.right - rc.left
-h = rc.bottom - rc.top
+h = rc.bottom - rc.Top
 SetWindowPos win, 0, 0, 0, w, c + h - rc2.bottom, SWP_NOACTIVATE Or SWP_NOMOVE Or SWP_NOZORDER
 End Property
 
@@ -1797,10 +1821,10 @@ Dim rc As RECTL
 win = GetWindow(ctl): If win = 0 Then Exit Sub
 GetWindowRect win, rc
 w = rc.right - rc.left
-h = rc.bottom - rc.top
+h = rc.bottom - rc.Top
 If TypeOf ctl Is Form Then Else ScreenToClient GetParent(win), VarPtr(rc)
 l = rc.left
-t = rc.top
+t = rc.Top
 If Not IsMissing(nLeft) Then l = nLeft
 If Not IsMissing(nTop) Then t = nTop
 If Not IsMissing(nWidth) Then w = nWidth
@@ -2180,7 +2204,7 @@ monInfo.cbSize = Len(monInfo)
 hMonitor = MonitorFromWindow(m_hwndParent, MONITOR_DEFAULTTONEAREST)
 GetMonitorInfoA hMonitor, VarPtr(monInfo)
 minX = monInfo.rcWork.left
-minY = monInfo.rcWork.top
+minY = monInfo.rcWork.Top
 maxX = monInfo.rcWork.right
 maxY = monInfo.rcWork.bottom
 f = flag And 3
@@ -2280,7 +2304,7 @@ Case WM_PAINT:
         GetComboBoxInfo hWnd, VarPtr(cbi)
         rc = cbi.rcItem
     End If
-    IntersectClipRect dc, rc.left, rc.top, rc.right, rc.bottom
+    IntersectClipRect dc, rc.left, rc.Top, rc.right, rc.bottom
     Style = GetWindowLongW(win, -16&)
     exStyle = GetWindowLongW(win, -20&)
     hFont = SendMessageW(hWnd, WM_GETFONT, 0, 0)
@@ -2316,9 +2340,9 @@ Case WM_PAINT:
 Case WM_SETCURSOR:
     n = m_Controls(id).hCursor
     If n = CUR_DEFAULT Then Exit Function
+    SetCursor n
     Handled = True
     SubclassProc = 1
-    SetCursor n
 Case WM_MOUSEMOVE:
     If bTrack = False Then
     If clas <> "combobox" Or ObjPtr(m_Controls(id).m_SubclassItem) = 0 Then
@@ -2427,7 +2451,7 @@ Case WM_DRAWITEM:
     If id < 0 Or id >= m_CtlCount Then Exit Function
     CopyMemory VarPtr(di), lParam, Len(di)
     If m_Controls(id).hWnd <> di.hwndItem Then Exit Function
-    l = di.rcItem.left: t = di.rcItem.top: w = di.rcItem.right - l: h = di.rcItem.bottom - t
+    l = di.rcItem.left: t = di.rcItem.Top: w = di.rcItem.right - l: h = di.rcItem.bottom - t
     RaiseEvent OwnerDraw(m_Controls(id).sName, m_Controls(id).iIndex, di.hdc, di.itemID, l, t, w, h, di.itemAction, di.itemState)
     Handled = True
     SubclassFormProc = 1
